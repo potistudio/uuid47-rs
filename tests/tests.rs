@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-	use uuidv47_rs::*;
+	use uuidv47::*;
 
 	#[test]
 	fn test_rd_wr_48() {
@@ -15,7 +15,7 @@ mod tests {
 	fn test_uuid_parse_format_roundtrip() {
 		// Correct 8-4-4-4-12 layout; version nibble '7' at start of 3rd group; RFC variant '8' in 4th.
 		let s = "00000000-0000-7000-8000-000000000000";
-		let mut u = Uuid128 { b: [0u8; 16] };
+		let mut u = Uuid128::new();
 
 		assert!(uuid_parse(s.as_bytes(), &mut u));
 		assert_eq!(uuid_version(&u), 7);
@@ -23,13 +23,13 @@ mod tests {
 		let mut out = [0u8; 37];
 		uuid_format(&u, &mut out);
 
-		let mut u2 = Uuid128 { b: [0u8; 16] };
+		let mut u2 = Uuid128::new();
 		assert!(uuid_parse(&out, &mut u2));
 		//TODO: Equal Trait
 		// assert_eq!(u, u2);
 
 		let bad = "zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz";
-		let mut t = Uuid128 { b: [0u8; 16] };
+		let mut t = Uuid128::new();
 		assert!(!uuid_parse(bad.as_bytes(), &mut t));
 	}
 }
