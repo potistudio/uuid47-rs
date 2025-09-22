@@ -2,6 +2,16 @@ pub struct Uuid128 {
 	pub b: [u8; 16],
 }
 
+impl Uuid128 {
+	pub fn new() -> Self {
+		Self { b: [0u8; 16] }
+	}
+
+	pub fn from_bytes(bytes: [u8; 16]) -> Self {
+		Self { b: bytes }
+	}
+}
+
 pub struct UuidV47Key {
 	pub k0: u64,
 	pub k1: u64,
