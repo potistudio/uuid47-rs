@@ -1,5 +1,5 @@
 [package]
-name = "uuidv47-rs"
+name = "uuidv47"
 version = "0.1.0"
 edition = "2024"
 
