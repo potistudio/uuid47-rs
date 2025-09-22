@@ -1,0 +1,6 @@
+# Auto-Generate by Cargo
+target/
+
+# macOS system files
+.DS_Store
+Thumbs.db
