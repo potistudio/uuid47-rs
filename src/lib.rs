@@ -1,68 +1,19 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum UuidParseError {
-	TooShort,
-	InvalidHex,
-}
+mod err;
+mod uuid;
+mod utils;
 
-impl std::fmt::Display for UuidParseError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		match self {
-			UuidParseError::TooShort => write!(f, "UUID string too short"),
-			UuidParseError::InvalidHex => write!(f, "Invalid hex character in UUID string"),
-		}
-	}
-}
-
-impl std::error::Error for UuidParseError { }
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Uuid128 {
-	pub b: [u8; 16],
-}
-
-impl Uuid128 {
-	pub fn new() -> Self {
-		Self { b: [0u8; 16] }
-	}
-
-	pub fn from_bytes(bytes: [u8; 16]) -> Self {
-		Self { b: bytes }
-	}
-}
+use utils::*;
+pub use err::*;
+pub use uuid::*;
 
 pub struct UuidV47Key {
 	pub k0: u64,
 	pub k1: u64,
 }
 
-#[inline(always)]
-pub fn rd64le(p: &[u8]) -> u64 {
-	u64::from_le_bytes(p[0..8].try_into().unwrap())
-}
-
-#[inline(always)]
-pub fn wr48be(dst: &mut [u8; 6], v48: u64) {
-	dst[0] = (v48 >> 40) as u8;
-	dst[1] = (v48 >> 32) as u8;
-	dst[2] = (v48 >> 24) as u8;
-	dst[3] = (v48 >> 16) as u8;
-	dst[4] = (v48 >> 8) as u8;
-	dst[5] = (v48 >> 0) as u8;
-}
-
-#[inline(always)]
-pub fn rd48be(src: &[u8; 6]) -> u64 {
-	((src[0] as u64) << 40)
-		| ((src[1] as u64) << 32)
-		| ((src[2] as u64) << 24)
-		| ((src[3] as u64) << 16)
-		| ((src[4] as u64) << 8)
-		| ((src[5] as u64) << 0)
-}
-
 // SipHash-2-4 (reference) in Rust
 #[inline(always)]
-pub fn siphash24(input: &[u8], k0: u64, k1: u64) -> u64 {
+fn siphash24(input: &[u8], k0: u64, k1: u64) -> u64 {
 	let mut v0 = 0x736f6d6570736575u64 ^ k0;
 	let mut v1 = 0x646f72616e646f6du64 ^ k1;
 	let mut v2 = 0x6c7967656e657261u64 ^ k0;
@@ -142,24 +93,6 @@ pub fn siphash24(input: &[u8], k0: u64, k1: u64) -> u64 {
 	v0 ^ v1 ^ v2 ^ v3
 }
 
-//* ---- Version/Variant helpers ------------------------ */
-#[inline(always)]
-pub fn uuid_version(u: &Uuid128) -> u8 {
-	(u.b[6] >> 4) & 0x0F
-}
-
-#[inline(always)]
-pub fn set_version(u: &mut Uuid128, ver: u8) {
-	u.b[6] = (u.b[6] & 0x0F) | ((ver & 0x0F) << 4);
-}
-
-#[inline(always)]
-pub fn set_variant_rfc4122(u: &mut Uuid128) {
-	// 10xxxxxx
-	u.b[8] = (u.b[8] & 0x3F) | 0x80;
-}
-//* ----------------------------------------------------- */
-
 #[inline(always)]
 fn build_sip_input_from_v7(u: &Uuid128, msg: &mut [u8; 10]) {
 	// [low-nibble of b6][b7][b8&0x3F][b9..b15]
@@ -170,57 +103,52 @@ fn build_sip_input_from_v7(u: &Uuid128, msg: &mut [u8; 10]) {
 }
 
 #[inline(always)]
-pub fn uuidv47_encode_v4facade(v7: Uuid128, key: UuidV47Key) -> Uuid128 {
-	// 1) mask = SipHash24(key, v7.random74bits) -> take low 48 bits
+pub fn uuidv47_encode_v4facade(v7: &Uuid128, key: &UuidV47Key) -> Uuid128 {
+	//* 1. SipHash24(key, v7.random74bits) -> take low 48 bits */
 	let mut sipmsg = [0u8; 10];
+
 	build_sip_input_from_v7(&v7, &mut sipmsg);
 	let mask48 = siphash24(&sipmsg, key.k0, key.k1) & 0x0000_FFFF_FFFF_FFFFu64;
 
-	// 2) encTS = ts ^ mask
-	let ts48 = rd48be((&v7.b[0..6]).try_into().unwrap());
-	let enc_ts = ts48 ^ mask48;
+	//* 2. Encode timestamp */
+	let encoded_timestamp = read_48_big_endian((&v7.b[0..6]).try_into().unwrap()) ^ mask48;
 
-	// 3) build v4 façade: write encTS, set ver=4, keep rand bytes identical, set variant
-	let mut out = v7;
-	{
-		let dst: &mut [u8; 6] = (&mut out.b[0..6]).try_into().unwrap();
-		wr48be(dst, enc_ts);
-	}
-	set_version(&mut out, 4);      // façade v4
-	set_variant_rfc4122(&mut out); // ensure RFC variant bits
+	//* 3. Build v4 facade */
+	// Use dereference copy instead of "from_bytes" to ensure performance optimization
+	// let mut out = Uuid128::from_bytes(v7.b); <- STUPID
+	let mut out = *v7;
+
+	// Force slice to fixed-size (should not panic)
+	write_48_big_endian((&mut out.b[0..6]).try_into().unwrap(), encoded_timestamp);
+
+	out.set_version(4);  // facade
+	out.set_variant_rfc4122();  // ensure RFC variant bits
+
 	out
 }
 
 #[inline(always)]
-pub fn uuidv47_decode_v4facade(v4facade: Uuid128, key: UuidV47Key) -> Uuid128 {
-	// 1) rebuild same Sip input from façade (identical bytes)
+pub fn uuidv47_decode_v4facade(v4facade: &Uuid128, key: &UuidV47Key) -> Uuid128 {
+	// 1. rebuild same Sip input from façade (identical bytes)
 	let mut sipmsg = [0u8; 10];
-	build_sip_input_from_v7(&v4facade, &mut sipmsg);
+	build_sip_input_from_v7(v4facade, &mut sipmsg);
 	let mask48 = siphash24(&sipmsg, key.k0, key.k1) & 0x0000_FFFF_FFFF_FFFFu64;
 
-	// 2) ts = encTS ^ mask
-	let enc_ts = rd48be((&v4facade.b[0..6]).try_into().unwrap());
-	let ts48 = enc_ts ^ mask48;
+	// 2. ts = encTS ^ mask
+	// Force slice to fixed-size (should not panic)
+	let ts48 = read_48_big_endian((v4facade.b[0..6]).try_into().unwrap()) ^ mask48;
 
-	// 3) restore v7: write ts, set ver=7, set variant
-	let mut out = v4facade;
-	{
-		let dst: &mut [u8; 6] = (&mut out.b[0..6]).try_into().unwrap();
-		wr48be(dst, ts48);
-	}
-	set_version(&mut out, 7);
-	set_variant_rfc4122(&mut out);
+	// 3. restore v7: write ts, set ver=7, set variant
+	// Use dereference copy instead of "from_bytes" to ensure performance optimization
+	// let mut result = Uuid128::from_bytes(v7.b); <- STUPID
+	let mut out = *v4facade;
+
+	// Force slice to fixed-size (should not panic)
+	write_48_big_endian((&mut out.b[0..6]).try_into().unwrap(), ts48);
+
+	out.set_version(7);
+	out.set_variant_rfc4122();
 	out
-}
-
-#[inline(always)]
-fn hexval(c: u8) -> i32 {
-	match c {
-		b'0'..=b'9' => (c - b'0') as i32,
-		b'a'..=b'f' => (c - b'a' + 10) as i32,
-		b'A'..=b'F' => (c - b'A' + 10) as i32,
-		_ => -1,
-	}
 }
 
 #[inline(always)]
@@ -249,8 +177,7 @@ pub fn uuid_parse(s: &[u8]) -> Result<Uuid128, UuidParseError> {
 		b[i] = ((h << 4) | l) as u8;
 	}
 
-	let result = Uuid128 { b };
-	Ok(result)
+	Ok(Uuid128{ b })
 }
 
 /// Format UUID into standard 8-4-4-4-12 hex string with dashes.
