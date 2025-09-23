@@ -9,14 +9,6 @@ This is a Rust implementation of [UUIDv47](https://github.com/stateless-me/uuidv
 cargo add uuidv47
 ```
 
-## Build
-
-```shell
-git clone https://github.com/potistudio/uuidv47-rs.git
-cd uuidv47-rs
-cargo build
-```
-
 ## License
 
 MIT License
