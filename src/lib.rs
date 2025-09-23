@@ -1,3 +1,21 @@
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UuidParseError {
+	TooShort,
+	InvalidHex,
+}
+
+impl std::fmt::Display for UuidParseError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			UuidParseError::TooShort => write!(f, "UUID string too short"),
+			UuidParseError::InvalidHex => write!(f, "Invalid hex character in UUID string"),
+		}
+	}
+}
+
+impl std::error::Error for UuidParseError { }
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Uuid128 {
 	pub b: [u8; 16],
 }
@@ -206,7 +224,7 @@ fn hexval(c: u8) -> i32 {
 }
 
 #[inline(always)]
-pub fn uuid_parse(s: &[u8], out: &mut Uuid128) -> bool {
+pub fn uuid_parse(s: &[u8]) -> Result<Uuid128, UuidParseError> {
 	// expects xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 	const IDXS: [usize; 32] = [
 		0, 1, 2, 3, 4, 5, 6, 7,
@@ -216,7 +234,7 @@ pub fn uuid_parse(s: &[u8], out: &mut Uuid128) -> bool {
 	];
 
 	if s.len() < 36 {
-		return false;
+		return Err(UuidParseError::TooShort);
 	}
 
 	let mut b = [0u8; 16];
@@ -225,14 +243,14 @@ pub fn uuid_parse(s: &[u8], out: &mut Uuid128) -> bool {
 		let l = hexval(s[IDXS[i * 2 + 1]]);
 
 		if h < 0 || l < 0 {
-			return false;
+			return Err(UuidParseError::InvalidHex);
 		}
 
 		b[i] = ((h << 4) | l) as u8;
 	}
 
-	out.b = b;
-	true
+	let result = Uuid128 { b };
+	Ok(result)
 }
 
 /// Format UUID into standard 8-4-4-4-12 hex string with dashes.
