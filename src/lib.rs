@@ -151,8 +151,16 @@ pub fn uuidv47_decode_v4facade(v4facade: &Uuid128, key: &UuidV47Key) -> Uuid128 
 	out
 }
 
+impl std::str::FromStr for Uuid128 {
+	type Err = UuidParseError;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		uuid_parse(s.as_bytes())
+	}
+}
+
 #[inline(always)]
-pub fn uuid_parse(s: &[u8]) -> Result<Uuid128, UuidParseError> {
+fn uuid_parse(s: &[u8]) -> Result<Uuid128, UuidParseError> {
 	// expects xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 	const IDXS: [usize; 32] = [
 		0, 1, 2, 3, 4, 5, 6, 7,

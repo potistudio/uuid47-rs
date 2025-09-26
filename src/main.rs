@@ -6,7 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// Parse str to UUIDv7
 	// error if provided string is invalid
-	let v7 = uuid_parse(s.as_bytes())?;
+	let v7: Uuid128 = s.parse()?;
 
 	// Provide your keys
 	let key = UuidV47Key { k0: 0x0123456789abcdef, k1: 0xfedcba9876543210 };
