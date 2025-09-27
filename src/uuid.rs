@@ -3,18 +3,13 @@ use crate::utils::*;
 use crate::key::UuidV47Key;
 
 /// A 128-bit UUID (UUIDv4 or UUIDv7).
-/// ## Notes
-/// - This struct has no validation of its contents.
-/// - Use `Uuid128::empty()` to create a valid UUIDv7 with all zero bytes.
-/// - Use `Uuid128::from_str()` to parse a UUID from standard string format.
-/// - Use `uuidv47_encode_v4facade()` and `uuidv47_decode_v4facade()` to convert between UUIDv7 and UUIDv4 facade.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Uuid128 {
 	bytes: [u8; 16],
 }
 
 impl Uuid128 {
-	/// Create an empty UUIDv7 (all zero bytes).
+	/// Create an empty UUIDv7 (all zero bytes excluding version and variant bits).
 	pub fn empty() -> Self {
 		let mut out = Self{ bytes: [0u8; 16] };
 		out.set_version(7);
@@ -24,7 +19,7 @@ impl Uuid128 {
 	}
 
 	/// Create a UUID from raw 16 bytes with validating version and variant bits.<br>
-	/// Returns an error if the bytes do not represent a valid UUIDv4 or UUIDv7 (RFC 4122).<br>
+	/// Returns an error if the bytes do not represent a valid UUIDv4 or UUIDv7 (RFC 4122).
 	pub fn from_bytes(bytes: [u8; 16]) -> Result<Self, UuidValidationError> {
 		// Accept only version 4 or 7
 		let version = (bytes[6] >> 4) & 0x0F;
@@ -41,7 +36,7 @@ impl Uuid128 {
 		Ok(Self { bytes })
 	}
 
-	/// Create a UUID from raw 16 bytes without validating.
+	/// Create a UUID from raw 16 bytes **without validating**.
 	///
 	/// # Safety
 	///

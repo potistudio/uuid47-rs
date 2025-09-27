@@ -1,10 +1,12 @@
-/// This is a library-specific error for UUID parsing failures.
+/// Error type representing a failure to parse a UUID from a string.
 #[derive(Debug)]
 pub enum UuidParseError {
-	/// The input string is too short to be a valid UUID
+	/// The input string length is invalid.<br>
+	/// A valid UUID string should be 36 characters long.
 	InvalidLength,
 
-	/// The input string contains invalid hexadecimal characters
+	/// The input string contains invalid hexadecimal characters.<br>
+	/// A valid UUID string should only contain hexadecimal characters (0-9, a-f, A-F) and hyphens.
 	InvalidHex,
 }
 
@@ -19,13 +21,15 @@ impl std::fmt::Display for UuidParseError {
 
 impl std::error::Error for UuidParseError { }
 
-/// This is a library-specific error for UUID validation failures.
+/// Error type representing a failure to validate bytes as a UUID."
 #[derive(Debug)]
 pub enum UuidValidationError {
-	/// The input bytes do not represent a valid UUID version
+	/// The input bytes do not represent a valid UUID version<br>
+	/// Valid versions are 4 (random) and 7 (time-ordered).
 	InvalidVersion,
 
-	/// The input bytes do not represent a valid UUID variant
+	/// The input bytes do not represent a valid UUID variant<br>
+	/// Valid variant is RFC 4122 (the variant used by UUIDv4 and UUIDv7).
 	InvalidVariant,
 }
 
