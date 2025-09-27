@@ -23,9 +23,30 @@ impl Uuid128 {
 		out
 	}
 
-	/// Create a UUID from raw 16 bytes.
-	/// ## Safety
-	/// The caller must ensure the bytes represent a valid UUID (version and variant bits).
+	/// Create a UUID from raw 16 bytes with validating version and variant bits.<br>
+	/// Returns an error if the bytes do not represent a valid UUIDv4 or UUIDv7 (RFC 4122).<br>
+	pub fn from_bytes(bytes: [u8; 16]) -> Result<Self, UuidValidationError> {
+		// Accept only version 4 or 7
+		let version = (bytes[6] >> 4) & 0x0F;
+		if version != 4 && version != 7 {
+			return Err(UuidValidationError::InvalidVersion);
+		}
+
+		// Variant: bits 6-7 of byte 8 must be 10xxxxxx (RFC 4122)
+		let variant = (bytes[8] & 0xC0) >> 6;
+		if variant != 0b10 {
+			return Err(UuidValidationError::InvalidVariant);
+		}
+
+		Ok(Self { bytes })
+	}
+
+	/// Create a UUID from raw 16 bytes without validating.
+	///
+	/// # Safety
+	///
+	/// The caller must ensure the bytes represent a valid UUID (version and variant bits).<br>
+	/// Prefer using [`Uuid128::from_bytes`] for safe construction.
 	pub unsafe fn new(bytes: [u8; 16]) -> Self {
 		Self{ bytes }
 	}
@@ -110,8 +131,8 @@ impl std::str::FromStr for Uuid128 {
 			24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
 		];
 
-		if s.len() < 36 {
-			return Err(UuidParseError::TooShort);
+		if s.len() != 36 {
+			return Err(UuidParseError::InvalidLength);
 		}
 
 		let mut b = [0u8; 16];
@@ -173,13 +194,13 @@ mod tests {
 		let mut u = Uuid128::empty();
 
 		u.set_version(7);
-		assert!(u.uuid_version() == 7);
+		assert_eq!(u.uuid_version(), 7);
 
 		u.set_version(4);
-		assert!(u.uuid_version() == 4);
+		assert_eq!(u.uuid_version(), 4);
 
 		u.set_variant_rfc4122();
-		assert!((u.bytes[8] & 0xC0) == 0x80);
+		assert_eq!((u.bytes[8] & 0xC0), 0x80);
 	}
 
 	fn craft_v7(uuid: &mut Uuid128, ts_ms_48: u64, rand_a_12: u16, rand_b_62: u64) {
@@ -206,11 +227,11 @@ mod tests {
 			let rb = (0x0123456789ABCDEF ^ (0x1111111111111111 * i as u64)) & ((1 << 62) - 1);
 
 			craft_v7(&mut u7, timestamp, random, rb);
-			assert!(u7.uuid_version() == 7);  // ensure manual creation worked
+			assert_eq!(u7.uuid_version(), 7);  // ensure manual creation worked
 
 			let facade = u7.uuidv47_encode_v4facade(&key);
-			assert!(facade.uuid_version() == 4);  // ensure version
-			assert!((facade.bytes[8] & 0xC0) == 0x80);  // ensure RFC variant
+			assert_eq!(facade.uuid_version(), 4);  // ensure version
+			assert_eq!((facade.bytes[8] & 0xC0), 0x80);  // ensure RFC variant
 
 			let back = facade.uuidv47_decode_v4facade(&key);
 			assert_eq!(u7, back);
