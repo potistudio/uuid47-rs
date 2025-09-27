@@ -1,10 +1,10 @@
 #[inline(always)]
-pub(super) fn read_64_little_endian(p: &[u8]) -> u64 {
+pub(crate) fn read_64_little_endian(p: &[u8]) -> u64 {
 	u64::from_le_bytes(p[0..8].try_into().unwrap())
 }
 
 #[inline(always)]
-pub(super) fn write_48_big_endian(dst: &mut [u8; 6], v48: u64) {
+pub(crate) fn write_48_big_endian(dst: &mut [u8; 6], v48: u64) {
 	dst[0] = (v48 >> 40) as u8;
 	dst[1] = (v48 >> 32) as u8;
 	dst[2] = (v48 >> 24) as u8;
@@ -14,7 +14,7 @@ pub(super) fn write_48_big_endian(dst: &mut [u8; 6], v48: u64) {
 }
 
 #[inline(always)]
-pub(super) fn read_48_big_endian(src: &[u8; 6]) -> u64 {
+pub(crate) fn read_48_big_endian(src: &[u8; 6]) -> u64 {
 	((src[0] as u64) << 40)
 		| ((src[1] as u64) << 32)
 		| ((src[2] as u64) << 24)
@@ -24,7 +24,7 @@ pub(super) fn read_48_big_endian(src: &[u8; 6]) -> u64 {
 }
 
 #[inline(always)]
-pub(super) fn hexval(c: &u8) -> i32 {
+pub(crate) fn hexval(c: &u8) -> i32 {
 	match c {
 		b'0'..=b'9' => (c - b'0') as i32,
 		b'a'..=b'f' => (c - b'a' + 10) as i32,
@@ -35,7 +35,7 @@ pub(super) fn hexval(c: &u8) -> i32 {
 
 // SipHash-2-4 (reference) in Rust
 #[inline(always)]
-pub(super) fn siphash24(input: &[u8], k0: u64, k1: u64) -> u64 {
+pub(crate) fn siphash24(input: &[u8], k0: u64, k1: u64) -> u64 {
 	let mut v0 = 0x736f6d6570736575u64 ^ k0;
 	let mut v1 = 0x646f72616e646f6du64 ^ k1;
 	let mut v2 = 0x6c7967656e657261u64 ^ k0;
