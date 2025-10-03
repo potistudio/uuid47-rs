@@ -1,5 +1,7 @@
-/// Error type representing a failure to parse a UUID from a string.
-#[derive(Debug)]
+/// An error which could be returned when parsing `Uuid128`.
+///
+/// This occurs when the `FromStr` implementation of `Uuid128` fails.
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum UuidParseError {
 	/// The input string length is invalid.<br>
 	/// A valid UUID string should be 36 characters long.

@@ -9,7 +9,15 @@ pub struct Uuid128 {
 }
 
 impl Uuid128 {
-	/// Create an empty UUIDv7 (all zero bytes excluding version and variant bits).
+	/// Create an empty UUIDv7
+	///
+	/// all bytes excluding version and variant bits are initialized with zero.
+	///
+	/// # Examples
+	/// ```
+	/// let uuid = uuidv47::Uuid128::empty();
+	/// assert_eq!(uuid.to_string(), "00000000-0000-7000-8000-000000000000");
+	/// ```
 	pub fn empty() -> Self {
 		let mut out = Self{ bytes: [0u8; 16] };
 		out.set_version(7);
@@ -18,7 +26,9 @@ impl Uuid128 {
 		out
 	}
 
-	/// Create a UUID from raw 16 bytes with validating version and variant bits.<br>
+	/// Create a UUID from raw 16 bytes
+	///
+	/// Always validate version and variant bits.<br>
 	/// Returns an error if the bytes do not represent a valid UUIDv4 or UUIDv7 (RFC 4122).
 	pub fn from_bytes(bytes: [u8; 16]) -> Result<Self, UuidValidationError> {
 		// Accept only version 4 or 7
@@ -47,16 +57,23 @@ impl Uuid128 {
 	}
 
 	/// Get this UUID version.
+	///
+	/// Returns 4 for UUIDv4, 7 for UUIDv7, or other values for invalid versions.
 	pub fn uuid_version(&self) -> u8 {
 		(&self.bytes[6] >> 4) & 0x0F
 	}
 
+	/// Set the UUID version (4 or 7).
+	///
+	/// set the version bits (4 bits) in byte 6.
 	fn set_version(&mut self, ver: u8) {
 		self.bytes[6] = (self.bytes[6] & 0x0F) | ((ver & 0x0F) << 4);
 	}
 
+	/// Set the UUID variant to RFC 4122 (10xxxxxx in byte 8).
+	///
+	/// set the variant bits (2 bits) in byte 8.
 	fn set_variant_rfc4122(&mut self) {
-		// 10xxxxxx
 		self.bytes[8] = (self.bytes[8] & 0x3F) | 0x80;
 	}
 
@@ -115,9 +132,12 @@ impl Uuid128 {
 impl std::str::FromStr for Uuid128 {
 	type Err = UuidParseError;
 
-	/// Parse UUID from standard 8-4-4-4-12 hex string with dashes.
+	/// Parse the string slice into a `Uuid128`.
+	///
+	/// The valid UUID format is 8-4-4-4-12 hex string with dashes.
+	/// E.g. "550e8400-e29b-41d4-a716-446655440000"
 	#[inline(always)]
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
+	fn from_str(uuid_string: &str) -> Result<Self, Self::Err> {
 		// expects xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 		const IDXS: [usize; 32] = [
 			0, 1, 2, 3, 4, 5, 6, 7,
@@ -126,14 +146,14 @@ impl std::str::FromStr for Uuid128 {
 			24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
 		];
 
-		if s.len() != 36 {
+		if uuid_string.len() != 36 {
 			return Err(UuidParseError::InvalidLength);
 		}
 
 		let mut b = [0u8; 16];
 		for i in 0..16 {
-			let h = hexval(&s.as_bytes()[IDXS[i * 2]]);
-			let l = hexval(&s.as_bytes()[IDXS[i * 2 + 1]]);
+			let h = hexval(&uuid_string.as_bytes()[IDXS[i * 2]]);
+			let l = hexval(&uuid_string.as_bytes()[IDXS[i * 2 + 1]]);
 
 			if h < 0 || l < 0 {
 				return Err(UuidParseError::InvalidHex);
@@ -147,7 +167,16 @@ impl std::str::FromStr for Uuid128 {
 }
 
 impl std::fmt::Display for Uuid128 {
-	/// Format UUID into standard 8-4-4-4-12 hex string with dashes.
+	/// Format the UUID into standard 8-4-4-4-12 hex string with dashes.
+	///
+	/// A `std::fmt::Result` indicating success or failure of the formatting operation.
+	///
+	/// # Examples
+	///
+	/// ```
+	/// let uuid = uuidv47::Uuid128::empty();
+	/// assert_eq!(uuid.to_string(), "00000000-0000-7000-8000-000000000000");
+	/// ```
 	#[inline(always)]
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		const HEXD: &[u8; 16] = b"0123456789abcdef";
