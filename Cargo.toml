@@ -1,6 +1,10 @@
 [package]
 name = "uuidv47"
-version = "0.1.0"
+description = "Useful features that convert between UUIDv7 and UUIDv4."
+authors = [ "potistudio <potistudio@proton.me>" ]
+version = "1.0.0"
+license = "MIT"
+repository = "https://github.com/potistudio/uuidv47-rs"
+keywords = [ "uuid", "uuidv4", "uuidv7" ]
+readme = "README.md"
 edition = "2024"
-
-[dependencies]
