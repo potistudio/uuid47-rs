@@ -17,9 +17,6 @@ This is a Rust implementation of [UUIDv47](https://github.com/stateless-me/uuidv
 
 ## Installation
 
-> [!CAUTION]
-> There is an empty crate with the name "uuidv47" on crate.io that doesn't actually work.  
-
 ```shell
 cargo add uuid47
 ```
