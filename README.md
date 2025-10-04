@@ -1,17 +1,28 @@
 # UUIDv47-rs — A Rust implementation of UUIDv47
 
-This library provides useful features that convert between UUIDv7 and UUIDv4
+![GitHub License](https://img.shields.io/github/license/potistudio/uuidv47-rs)
+![GitHub Release](https://img.shields.io/github/v/release/potistudio/uuidv47-rs)
 
-- Wraps all API in safe Rust.
-- Provides comfortable object-oriented API.
-
+A simple and lightweight library for converting between UUIDv7 and UUIDv4 facade.  
 This is a Rust implementation of [UUIDv47](https://github.com/stateless-me/uuidv47)
-> uuidv47 lets you store sortable UUIDv7 in your database while emitting a UUIDv4‑looking façade at your API boundary. It XOR‑masks only the UUIDv7 timestamp field with a keyed SipHash‑2‑4 stream derived from the UUID’s own random bits. The mapping is deterministic and exactly invertible.
+
+> uuidv47 lets you store sortable UUIDv7 in your database while emitting a UUIDv4‑looking façade at your API boundary. It XOR‑masks only the UUIDv7 timestamp field with a keyed SipHash‑2‑4 stream derived from the UUID’s own random bits. The mapping is deterministic and exactly invertible.[^1]
+
+## Features
+
+- **🛡 Safe**: Implemented all APIs in safe Rust.
+- **🔰 Easy**: Provides simple object-oriented API.
+- **🚀 Fast**: Designed to eliminate overhead and run at high performance.
+- **📦 Lightweight** Zero dependencies.
 
 ## Installation
 
+> [!CAUTION]
+> There is an empty crate with the same name on crate.io that doesn't actually work.  
+> If you want to use **mine**, please install it via GitHub repo.
+
 ```shell
-cargo add uuidv47
+cargo add --git https://github.com/potistudio/uuidv47-rs.git
 ```
 
 ## Usage
@@ -52,14 +63,20 @@ back    : 00000000-0000-7000-8000-000000000000
 git clone https://github.com/potistudio/uuidv47-rs.git
 cd uuidv47-rs
 
-cargo test
-cargo run
+cargo test  # Run test
+cargo run --example basic  # Run example
 ```
+
+## Contributing
+
+Bug reports and pull requests are welcome on GitHub.
 
 ## License
 
 This library is released under the [MIT License](LICENSE).
 
-## Credit
+## Credits
 
 This is a Rust implementation of [UUIDv47](https://github.com/stateless-me/uuidv47) developed by [@Stateless](https://github.com/stateless-me).
+
+[^1]: https://github.com/stateless-me/uuidv47
