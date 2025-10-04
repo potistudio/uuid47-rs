@@ -1,9 +1,4 @@
 #[inline(always)]
-pub(crate) fn read_64_little_endian(p: &[u8]) -> u64 {
-	u64::from_le_bytes(p[0..8].try_into().unwrap())
-}
-
-#[inline(always)]
 pub(crate) fn write_48_big_endian(dst: &mut [u8; 6], v48: u64) {
 	dst[0] = (v48 >> 40) as u8;
 	dst[1] = (v48 >> 32) as u8;

@@ -3,7 +3,7 @@ use crate::utils::*;
 use crate::key::UuidV47Key;
 
 /// A 128-bit UUID (UUIDv4 or UUIDv7).
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Uuid128 {
 	bytes: [u8; 16],
 }
@@ -15,7 +15,7 @@ impl Uuid128 {
 	///
 	/// # Examples
 	/// ```
-	/// let uuid = uuidv47::Uuid128::empty();
+	/// let uuid = uuid47::Uuid128::empty();
 	/// assert_eq!(uuid.to_string(), "00000000-0000-7000-8000-000000000000");
 	/// ```
 	pub fn empty() -> Self {
@@ -79,7 +79,7 @@ impl Uuid128 {
 
 	/// Encode this UUIDv7 into UUIDv4 facade using UuidV47Key.
 	#[inline(always)]
-	pub fn uuidv47_encode_v4facade(&self, key: &UuidV47Key) -> Uuid128 {
+	pub fn encode_as_v4facade(&self, key: &UuidV47Key) -> Uuid128 {
 		//* 1. SipHash24(key, v7.random74bits) -> take low 48 bits */
 		let mut sipmsg = [0u8; 10];
 
@@ -105,7 +105,7 @@ impl Uuid128 {
 
 	/// Decode this UUIDv4 facade back into UUIDv7 using UuidV47Key.
 	#[inline(always)]
-	pub fn uuidv47_decode_v4facade(&self, key: &UuidV47Key) -> Uuid128 {
+	pub fn decode_from_v4facade(&self, key: &UuidV47Key) -> Uuid128 {
 		// 1. rebuild same Sip input from facade (identical bytes)
 		let mut sipmsg = [0u8; 10];
 		build_sip_input_from_v7(self, &mut sipmsg);
@@ -174,11 +174,11 @@ impl std::fmt::Display for Uuid128 {
 	/// # Examples
 	///
 	/// ```
-	/// let uuid = uuidv47::Uuid128::empty();
+	/// let uuid = uuid47::Uuid128::empty();
 	/// assert_eq!(uuid.to_string(), "00000000-0000-7000-8000-000000000000");
 	/// ```
 	#[inline(always)]
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		const HEXD: &[u8; 16] = b"0123456789abcdef";
 		let mut j = 0usize;
 
@@ -253,15 +253,15 @@ mod tests {
 			craft_v7(&mut u7, timestamp, random, rb);
 			assert_eq!(u7.uuid_version(), 7);  // ensure manual creation worked
 
-			let facade = u7.uuidv47_encode_v4facade(&key);
+			let facade = u7.encode_as_v4facade(&key);
 			assert_eq!(facade.uuid_version(), 4);  // ensure version
 			assert_eq!((facade.bytes[8] & 0xC0), 0x80);  // ensure RFC variant
 
-			let back = facade.uuidv47_decode_v4facade(&key);
+			let back = facade.decode_from_v4facade(&key);
 			assert_eq!(u7, back);
 
 			let wrong = UuidV47Key { k0: key.k0 ^ 0xdeadbeef, k1: key.k1 ^ 0x1337 };
-			let bad = facade.uuidv47_decode_v4facade(&wrong);
+			let bad = facade.decode_from_v4facade(&wrong);
 			assert_ne!(u7, bad);
 		}
 	}

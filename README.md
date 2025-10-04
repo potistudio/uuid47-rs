@@ -1,7 +1,7 @@
-# UUIDv47-rs — A Rust implementation of UUIDv47
+# UUID47-rs — A Rust implementation of UUIDv47
 
-![GitHub License](https://img.shields.io/github/license/potistudio/uuidv47-rs)
-![GitHub Release](https://img.shields.io/github/v/release/potistudio/uuidv47-rs)
+![GitHub License](https://img.shields.io/github/license/potistudio/uuid47-rs)
+![GitHub Release](https://img.shields.io/github/v/release/potistudio/uuid47-rs)
 
 A simple and lightweight library for converting between UUIDv7 and UUIDv4 facade.  
 This is a Rust implementation of [UUIDv47](https://github.com/stateless-me/uuidv47)
@@ -18,17 +18,16 @@ This is a Rust implementation of [UUIDv47](https://github.com/stateless-me/uuidv
 ## Installation
 
 > [!CAUTION]
-> There is an empty crate with the same name on crate.io that doesn't actually work.  
-> If you want to use **mine**, please install it via GitHub repo.
+> There is an empty crate with the name "uuidv47" on crate.io that doesn't actually work.  
 
 ```shell
-cargo add --git https://github.com/potistudio/uuidv47-rs.git
+cargo add uuid47
 ```
 
 ## Usage
 
 ```rust
-use uuidv47::*;
+use uuid47::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
   let s = "00000000-0000-7000-8000-000000000000";  // your UUIDv7 string
@@ -37,15 +36,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   // Parse str to UUIDv7
   // error if provided string is invalid
   let v7: Uuid128 = s.parse()?;
-  println!("v7(DB)  : {}", v7.to_string());
+  println!("v7(DB)  : {}", v7);
 
   // Encode UUIDv7 to UUIDv4 facade
-  let facade = v7.uuidv47_encode_v4facade(&key);
-  println!("v4(API) : {}", facade.to_string());
+  let facade = v7.encode_as_v4facade(&key);
+  println!("v4(API) : {}", facade);
 
   // Decode UUIDv4 facade to UUIDv7
-  let back = facade.uuidv47_decode_v4facade(&key);
-  println!("back    : {}", back.to_string());
+  let back = facade.decode_from_v4facade(&key);
+  println!("back    : {}", back);
 
   Ok(())
 }
@@ -60,8 +59,8 @@ back    : 00000000-0000-7000-8000-000000000000
 ## Development
 
 ```shell
-git clone https://github.com/potistudio/uuidv47-rs.git
-cd uuidv47-rs
+git clone https://github.com/potistudio/uuid47-rs.git
+cd uuid47-rs
 
 cargo test  # Run test
 cargo run --example basic  # Run example
@@ -79,4 +78,4 @@ This library is released under the [MIT License](LICENSE).
 
 This is a Rust implementation of [UUIDv47](https://github.com/stateless-me/uuidv47) developed by [@Stateless](https://github.com/stateless-me).
 
-[^1]: https://github.com/stateless-me/uuidv47
+[^1]: <https://github.com/stateless-me/uuidv47>

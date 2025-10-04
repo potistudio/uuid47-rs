@@ -1,4 +1,4 @@
-use uuidv47::*;
+use uuid47::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let s = "00000000-0000-7000-8000-000000000000";  // your UUIDv7 string
@@ -10,11 +10,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("v7(DB)  : {}", v7);
 
 	// Encode UUIDv7 to UUIDv4 facade
-	let facade = v7.uuidv47_encode_v4facade(&key);
+	let facade = v7.encode_as_v4facade(&key);
 	println!("v4(API) : {}", facade);
 
 	// Decode UUIDv4 facade to UUIDv7
-	let back = facade.uuidv47_decode_v4facade(&key);
+	let back = facade.decode_from_v4facade(&key);
 	println!("back    : {}", back);
 
 	Ok(())
