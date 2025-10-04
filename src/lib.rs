@@ -41,7 +41,12 @@
 //! // back    : 00000000-0000-7000-8000-000000000000
 //! ```
 
+#![doc(html_root_url = "https://docs.rs/uuid47/1.0.0")]
+
 #![deny(missing_docs)]
+#![deny(nonstandard_style)]
+#![deny(rust_2018_idioms)]
+#![deny(unused)]
 #![warn(clippy::all)]
 
 mod uuid;

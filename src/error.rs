@@ -13,7 +13,7 @@ pub enum UuidParseError {
 }
 
 impl std::fmt::Display for UuidParseError {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			UuidParseError::InvalidLength => write!(f, "Invalid length for UUID string (should be 36)"),
 			UuidParseError::InvalidHex => write!(f, "Invalid hex character in UUID string"),
@@ -36,7 +36,7 @@ pub enum UuidValidationError {
 }
 
 impl std::fmt::Display for UuidValidationError {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			UuidValidationError::InvalidVersion => write!(f, "Invalid version in UUID bytes. Must be 4 or 7"),
 			UuidValidationError::InvalidVariant => write!(f, "Invalid variant in UUID bytes. Must be RFC 4122 variant"),

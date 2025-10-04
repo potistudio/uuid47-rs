@@ -178,7 +178,7 @@ impl std::fmt::Display for Uuid128 {
 	/// assert_eq!(uuid.to_string(), "00000000-0000-7000-8000-000000000000");
 	/// ```
 	#[inline(always)]
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		const HEXD: &[u8; 16] = b"0123456789abcdef";
 		let mut j = 0usize;
 
