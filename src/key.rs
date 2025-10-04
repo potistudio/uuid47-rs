@@ -1,5 +1,5 @@
 /// Key structure for UUIDv47 encoding/decoding.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct UuidV47Key {
 	/// First 64 bits of the key.
 	pub k0: u64,
