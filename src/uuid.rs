@@ -15,7 +15,7 @@ impl Uuid128 {
 	///
 	/// # Examples
 	/// ```
-	/// let uuid = uuidv47::Uuid128::empty();
+	/// let uuid = uuid47::Uuid128::empty();
 	/// assert_eq!(uuid.to_string(), "00000000-0000-7000-8000-000000000000");
 	/// ```
 	pub fn empty() -> Self {
@@ -174,7 +174,7 @@ impl std::fmt::Display for Uuid128 {
 	/// # Examples
 	///
 	/// ```
-	/// let uuid = uuidv47::Uuid128::empty();
+	/// let uuid = uuid47::Uuid128::empty();
 	/// assert_eq!(uuid.to_string(), "00000000-0000-7000-8000-000000000000");
 	/// ```
 	#[inline(always)]

@@ -1,4 +1,4 @@
-use uuidv47::*;
+use uuid47::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let s = "00000000-0000-7000-8000-000000000000";  // your UUIDv7 string

@@ -1,4 +1,4 @@
-use uuidv47::*;
+use uuid47::*;
 
 #[test]
 fn test_uuid_parse_format_roundtrip() -> Result<(), Box<dyn std::error::Error>> {

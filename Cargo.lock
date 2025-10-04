@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "uuidv47"
+name = "uuid47"
 version = "1.0.0"
