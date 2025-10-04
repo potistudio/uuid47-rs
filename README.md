@@ -36,15 +36,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   // Parse str to UUIDv7
   // error if provided string is invalid
   let v7: Uuid128 = s.parse()?;
-  println!("v7(DB)  : {}", v7.to_string());
+  println!("v7(DB)  : {}", v7);
 
   // Encode UUIDv7 to UUIDv4 facade
-  let facade = v7.uuid47_encode_v4facade(&key);
-  println!("v4(API) : {}", facade.to_string());
+  let facade = v7.encode_as_v4facade(&key);
+  println!("v4(API) : {}", facade);
 
   // Decode UUIDv4 facade to UUIDv7
-  let back = facade.uuid47_decode_v4facade(&key);
-  println!("back    : {}", back.to_string());
+  let back = facade.decode_from_v4facade(&key);
+  println!("back    : {}", back);
 
   Ok(())
 }

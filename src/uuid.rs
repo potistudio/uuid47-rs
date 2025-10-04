@@ -79,7 +79,7 @@ impl Uuid128 {
 
 	/// Encode this UUIDv7 into UUIDv4 facade using UuidV47Key.
 	#[inline(always)]
-	pub fn encode_to_v7(&self, key: &UuidV47Key) -> Uuid128 {
+	pub fn encode_as_v4facade(&self, key: &UuidV47Key) -> Uuid128 {
 		//* 1. SipHash24(key, v7.random74bits) -> take low 48 bits */
 		let mut sipmsg = [0u8; 10];
 
@@ -253,7 +253,7 @@ mod tests {
 			craft_v7(&mut u7, timestamp, random, rb);
 			assert_eq!(u7.uuid_version(), 7);  // ensure manual creation worked
 
-			let facade = u7.encode_to_v7(&key);
+			let facade = u7.encode_as_v4facade(&key);
 			assert_eq!(facade.uuid_version(), 4);  // ensure version
 			assert_eq!((facade.bytes[8] & 0xC0), 0x80);  // ensure RFC variant
 
