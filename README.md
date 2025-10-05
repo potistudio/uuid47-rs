@@ -15,6 +15,22 @@ This is a Rust implementation of [UUIDv47](https://github.com/stateless-me/uuidv
 - **🚀 Fast**: Designed to eliminate overhead and run at high performance.
 - **📦 Lightweight** Zero dependencies.
 
+## Benchmarks
+
+All benchmarks were measured on
+
+- CPU: AMD Ryzen 5 5600X
+- RAM: DDR4 2133MHz
+- rustc: v1.90.0
+- OS: Windows 10 22H2
+
+```text
+encode_as_v4facade      time: 12.520 ns
+decode_from_v4facade    time: 12.720 ns
+parse_uuid              time: 24.443 ns
+format_uuid             time: 69.642 ns
+```
+
 ## Installation
 
 ```shell

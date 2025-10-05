@@ -8,3 +8,15 @@ repository = "https://github.com/potistudio/uuid47-rs"
 keywords = [ "uuid", "uuidv4", "uuidv7", "uuidv47" ]
 readme = "README.md"
 edition = "2024"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[profile.bench]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+
+[[bench]]
+name = "operations"
+harness = false
