@@ -1,6 +1,6 @@
 use crate::error::{UuidParseError, UuidValidationError};
 use crate::key::UuidV47Key;
-use crate::utils::{ siphash24, read_48_big_endian, write_48_big_endian, hexval};
+use crate::utils::{hexval, read_48_big_endian, siphash24, write_48_big_endian};
 
 /// A 128-bit UUID (`UUIDv4` or `UUIDv7`).
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -193,6 +193,33 @@ impl std::str::FromStr for Uuid128 {
 	}
 }
 
+// 256 エントリ、各エントリは 2 バイト (ascii nibble -> two ascii chars)
+const HEX_PAIR_TABLE: [[u8; 2]; 256] = {
+	const fn make_table() -> [[u8; 2]; 256] {
+		let mut t = [[0u8; 2]; 256];
+		let mut i = 0usize;
+		while i < 256 {
+			let hi = (i >> 4) & 0xF;
+			let lo = i & 0xF;
+			// ascii for hex nibble
+			let hi_ch = if hi < 10 {
+				b'0' + hi as u8
+			} else {
+				b'a' + (hi as u8 - 10)
+			};
+			let lo_ch = if lo < 10 {
+				b'0' + lo as u8
+			} else {
+				b'a' + (lo as u8 - 10)
+			};
+			t[i] = [hi_ch, lo_ch];
+			i += 1;
+		}
+		t
+	}
+	make_table()
+};
+
 impl std::fmt::Display for Uuid128 {
 	/// Format the UUID into standard 8-4-4-4-12 hex string with dashes.
 	///
@@ -206,59 +233,54 @@ impl std::fmt::Display for Uuid128 {
 	/// ```
 	#[inline]
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		const HEXD: &[u8; 16] = b"0123456789abcdef";
+		// hex_out: 32 bytes (2 chars per input byte)
+		let mut hex_out = [0u8; 32];
+
+		// expand each input byte into 2 ascii chars using table lookup
 		let b = &self.bytes;
+		// unroll a bit manually for speed
+		hex_out[0..2].copy_from_slice(&HEX_PAIR_TABLE[b[0] as usize]);
+		hex_out[2..4].copy_from_slice(&HEX_PAIR_TABLE[b[1] as usize]);
+		hex_out[4..6].copy_from_slice(&HEX_PAIR_TABLE[b[2] as usize]);
+		hex_out[6..8].copy_from_slice(&HEX_PAIR_TABLE[b[3] as usize]);
+		hex_out[8..10].copy_from_slice(&HEX_PAIR_TABLE[b[4] as usize]);
+		hex_out[10..12].copy_from_slice(&HEX_PAIR_TABLE[b[5] as usize]);
+		hex_out[12..14].copy_from_slice(&HEX_PAIR_TABLE[b[6] as usize]);
+		hex_out[14..16].copy_from_slice(&HEX_PAIR_TABLE[b[7] as usize]);
+		hex_out[16..18].copy_from_slice(&HEX_PAIR_TABLE[b[8] as usize]);
+		hex_out[18..20].copy_from_slice(&HEX_PAIR_TABLE[b[9] as usize]);
+		hex_out[20..22].copy_from_slice(&HEX_PAIR_TABLE[b[10] as usize]);
+		hex_out[22..24].copy_from_slice(&HEX_PAIR_TABLE[b[11] as usize]);
+		hex_out[24..26].copy_from_slice(&HEX_PAIR_TABLE[b[12] as usize]);
+		hex_out[26..28].copy_from_slice(&HEX_PAIR_TABLE[b[13] as usize]);
+		hex_out[28..30].copy_from_slice(&HEX_PAIR_TABLE[b[14] as usize]);
+		hex_out[30..32].copy_from_slice(&HEX_PAIR_TABLE[b[15] as usize]);
 
+		// final 36-byte output with dashes at positions 8,13,18,23
 		let mut out = [0u8; 36];
-
-		// Unrolled loop for maximum performance
-		// Segment 1: bytes 0-3 (8 hex chars)
-		out[0] = HEXD[(b[0] >> 4) as usize];
-		out[1] = HEXD[(b[0] & 0x0F) as usize];
-		out[2] = HEXD[(b[1] >> 4) as usize];
-		out[3] = HEXD[(b[1] & 0x0F) as usize];
-		out[4] = HEXD[(b[2] >> 4) as usize];
-		out[5] = HEXD[(b[2] & 0x0F) as usize];
-		out[6] = HEXD[(b[3] >> 4) as usize];
-		out[7] = HEXD[(b[3] & 0x0F) as usize];
+		// segments:
+		// out[0..8]   <- hex_out[0..8]
+		out[0..8].copy_from_slice(&hex_out[0..8]);
 		out[8] = b'-';
 
-		// Segment 2: bytes 4-5 (4 hex chars)
-		out[9] = HEXD[(b[4] >> 4) as usize];
-		out[10] = HEXD[(b[4] & 0x0F) as usize];
-		out[11] = HEXD[(b[5] >> 4) as usize];
-		out[12] = HEXD[(b[5] & 0x0F) as usize];
+		// out[9..13]  <- hex_out[8..12]
+		out[9..13].copy_from_slice(&hex_out[8..12]);
 		out[13] = b'-';
 
-		// Segment 3: bytes 6-7 (4 hex chars)
-		out[14] = HEXD[(b[6] >> 4) as usize];
-		out[15] = HEXD[(b[6] & 0x0F) as usize];
-		out[16] = HEXD[(b[7] >> 4) as usize];
-		out[17] = HEXD[(b[7] & 0x0F) as usize];
+		// out[14..18] <- hex_out[12..16]
+		out[14..18].copy_from_slice(&hex_out[12..16]);
 		out[18] = b'-';
 
-		// Segment 4: bytes 8-9 (4 hex chars)
-		out[19] = HEXD[(b[8] >> 4) as usize];
-		out[20] = HEXD[(b[8] & 0x0F) as usize];
-		out[21] = HEXD[(b[9] >> 4) as usize];
-		out[22] = HEXD[(b[9] & 0x0F) as usize];
+		// out[19..23] <- hex_out[16..20]
+		out[19..23].copy_from_slice(&hex_out[16..20]);
 		out[23] = b'-';
 
-		// Segment 5: bytes 10-15 (12 hex chars)
-		out[24] = HEXD[(b[10] >> 4) as usize];
-		out[25] = HEXD[(b[10] & 0x0F) as usize];
-		out[26] = HEXD[(b[11] >> 4) as usize];
-		out[27] = HEXD[(b[11] & 0x0F) as usize];
-		out[28] = HEXD[(b[12] >> 4) as usize];
-		out[29] = HEXD[(b[12] & 0x0F) as usize];
-		out[30] = HEXD[(b[13] >> 4) as usize];
-		out[31] = HEXD[(b[13] & 0x0F) as usize];
-		out[32] = HEXD[(b[14] >> 4) as usize];
-		out[33] = HEXD[(b[14] & 0x0F) as usize];
-		out[34] = HEXD[(b[15] >> 4) as usize];
-		out[35] = HEXD[(b[15] & 0x0F) as usize];
+		// out[24..36] <- hex_out[20..32] (12 chars)
+		out[24..36].copy_from_slice(&hex_out[20..32]);
 
-		f.write_str(unsafe { std::str::from_utf8_unchecked(&out) })
+		// safe: we only put ASCII hex and '-'
+		let s = unsafe { std::str::from_utf8_unchecked(&out) };
+		f.write_str(s)
 	}
 }
 
