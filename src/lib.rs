@@ -42,18 +42,27 @@
 //! ```
 
 #![doc(html_root_url = "https://docs.rs/uuid47/1.0.0")]
-
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(missing_docs)]
+#![deny(missing_debug_implementations)]
 #![deny(nonstandard_style)]
 #![deny(rust_2018_idioms)]
 #![deny(unused)]
 #![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::cargo)]
+#![allow(clippy::module_name_repetitions)]
 
-mod uuid;
-mod key;
 mod error;
+mod key;
 mod utils;
+mod uuid;
 
-pub use uuid::Uuid128;
+pub use error::{UuidParseError, UuidValidationError};
 pub use key::UuidV47Key;
-pub use error::{ UuidParseError, UuidValidationError };
+pub use uuid::Uuid128;
+
+/// Re-export of common types for convenience.
+pub mod prelude {
+	pub use crate::{Uuid128, UuidParseError, UuidV47Key, UuidValidationError};
+}

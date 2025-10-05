@@ -1,6 +1,6 @@
 use crate::error::*;
-use crate::utils::*;
 use crate::key::UuidV47Key;
+use crate::utils::*;
 
 /// A 128-bit UUID (UUIDv4 or UUIDv7).
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -19,7 +19,7 @@ impl Uuid128 {
 	/// assert_eq!(uuid.to_string(), "00000000-0000-7000-8000-000000000000");
 	/// ```
 	pub fn empty() -> Self {
-		let mut out = Self{ bytes: [0u8; 16] };
+		let mut out = Self { bytes: [0u8; 16] };
 		out.set_version(7);
 		out.set_variant_rfc4122();
 
@@ -53,7 +53,7 @@ impl Uuid128 {
 	/// The caller must ensure the bytes represent a valid UUID (version and variant bits).<br>
 	/// Prefer using [`Uuid128::from_bytes`] for safe construction.
 	pub unsafe fn new(bytes: [u8; 16]) -> Self {
-		Self{ bytes }
+		Self { bytes }
 	}
 
 	/// Get this UUID version.
@@ -95,10 +95,13 @@ impl Uuid128 {
 		let mut out = *self;
 
 		// Force slice to fixed-size (should not panic)
-		write_48_big_endian((&mut out.bytes[0..6]).try_into().unwrap(), encoded_timestamp);
+		write_48_big_endian(
+			(&mut out.bytes[0..6]).try_into().unwrap(),
+			encoded_timestamp,
+		);
 
-		out.set_version(4);  // facade
-		out.set_variant_rfc4122();  // ensure RFC variant bits
+		out.set_version(4); // facade
+		out.set_variant_rfc4122(); // ensure RFC variant bits
 
 		out
 	}
@@ -139,6 +142,7 @@ impl std::str::FromStr for Uuid128 {
 	#[inline(always)]
 	fn from_str(uuid_string: &str) -> Result<Self, Self::Err> {
 		// expects xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+		#[rustfmt::skip]
 		const IDXS: [usize; 32] = [
 			0, 1, 2, 3, 4, 5, 6, 7,
 			9, 10, 11, 12, 14, 15, 16, 17,
@@ -162,7 +166,7 @@ impl std::str::FromStr for Uuid128 {
 			b[i] = ((h << 4) | l) as u8;
 		}
 
-		Ok(Uuid128{ bytes: b })
+		Ok(Uuid128 { bytes: b })
 	}
 }
 
@@ -196,7 +200,9 @@ impl std::fmt::Display for Uuid128 {
 			j += 1;
 		}
 
-		write!(f, "{}", unsafe{ std::str::from_utf8_unchecked(&out[..36]) })
+		write!(f, "{}", unsafe {
+			std::str::from_utf8_unchecked(&out[..36])
+		})
 	}
 }
 
@@ -229,7 +235,10 @@ mod tests {
 
 	fn craft_v7(uuid: &mut Uuid128, ts_ms_48: u64, rand_a_12: u16, rand_b_62: u64) {
 		uuid.bytes.fill(0);
-		write_48_big_endian(&mut uuid.bytes[0..6].try_into().unwrap(), ts_ms_48 & 0x0000FFFFFFFFFFFF);
+		write_48_big_endian(
+			&mut uuid.bytes[0..6].try_into().unwrap(),
+			ts_ms_48 & 0x0000FFFFFFFFFFFF,
+		);
 		uuid.set_version(7);
 		uuid.bytes[6] = (uuid.bytes[6] & 0xF0) | ((rand_a_12 >> 8) as u8 & 0x0F);
 		uuid.bytes[7] = (rand_a_12 & 0xFF) as u8;
@@ -242,7 +251,10 @@ mod tests {
 
 	#[test]
 	fn test_encode_decode_roundtrip() {
-		let key = UuidV47Key { k0: 0x0123456789abcdef, k1: 0xfedcba9876543210 };
+		let key = UuidV47Key {
+			k0: 0x0123456789abcdef,
+			k1: 0xfedcba9876543210,
+		};
 
 		for i in 0..16 {
 			let mut u7 = Uuid128::empty();
@@ -251,16 +263,19 @@ mod tests {
 			let rb = (0x0123456789ABCDEF ^ (0x1111111111111111 * i as u64)) & ((1 << 62) - 1);
 
 			craft_v7(&mut u7, timestamp, random, rb);
-			assert_eq!(u7.uuid_version(), 7);  // ensure manual creation worked
+			assert_eq!(u7.uuid_version(), 7); // ensure manual creation worked
 
 			let facade = u7.encode_as_v4facade(&key);
-			assert_eq!(facade.uuid_version(), 4);  // ensure version
-			assert_eq!((facade.bytes[8] & 0xC0), 0x80);  // ensure RFC variant
+			assert_eq!(facade.uuid_version(), 4); // ensure version
+			assert_eq!((facade.bytes[8] & 0xC0), 0x80); // ensure RFC variant
 
 			let back = facade.decode_from_v4facade(&key);
 			assert_eq!(u7, back);
 
-			let wrong = UuidV47Key { k0: key.k0 ^ 0xdeadbeef, k1: key.k1 ^ 0x1337 };
+			let wrong = UuidV47Key {
+				k0: key.k0 ^ 0xdeadbeef,
+				k1: key.k1 ^ 0x1337,
+			};
 			let bad = facade.decode_from_v4facade(&wrong);
 			assert_ne!(u7, bad);
 		}

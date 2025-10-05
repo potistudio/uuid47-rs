@@ -19,15 +19,27 @@ fn test_uuid_parse_format_roundtrip() -> Result<(), Box<dyn std::error::Error>> 
 
 #[test]
 fn test_bad_uuid_parse() {
-	let invalid_hex = "zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz";  // invalid hex
-	assert!(matches!(invalid_hex.parse::<Uuid128>(), Err(UuidParseError::InvalidHex)));
+	let invalid_hex = "zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz"; // invalid hex
+	assert!(matches!(
+		invalid_hex.parse::<Uuid128>(),
+		Err(UuidParseError::InvalidHex)
+	));
 
-	let invalid_layout = "000000000-000-7000-8000-000000000000";  // invalid layout
-	assert!(matches!(invalid_layout.parse::<Uuid128>(), Err(UuidParseError::InvalidHex)));
+	let invalid_layout = "000000000-000-7000-8000-000000000000"; // invalid layout
+	assert!(matches!(
+		invalid_layout.parse::<Uuid128>(),
+		Err(UuidParseError::InvalidHex)
+	));
 
-	let too_short = "00000000-0000-7000-8000-00000000000";  // too short
-	assert!(matches!(too_short.parse::<Uuid128>(), Err(UuidParseError::InvalidLength)));
+	let too_short = "00000000-0000-7000-8000-00000000000"; // too short
+	assert!(matches!(
+		too_short.parse::<Uuid128>(),
+		Err(UuidParseError::InvalidLength)
+	));
 
-	let too_long = "00000000-0000-7000-8000-0000000000000";  // too long
-	assert!(matches!(too_long.parse::<Uuid128>(), Err(UuidParseError::InvalidLength)));
+	let too_long = "00000000-0000-7000-8000-0000000000000"; // too long
+	assert!(matches!(
+		too_long.parse::<Uuid128>(),
+		Err(UuidParseError::InvalidLength)
+	));
 }

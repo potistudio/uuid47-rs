@@ -1,8 +1,8 @@
 use uuid47::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-	let s = "00000000-0000-7000-8000-000000000000";  // your UUIDv7 string
-	let key = UuidV47Key::new(0x0123456789abcdef, 0xfedcba9876543210);  // your 128-bit key
+	let s = "00000000-0000-7000-8000-000000000000"; // your UUIDv7 string
+	let key = UuidV47Key::new(0x0123456789abcdef, 0xfedcba9876543210); // your 128-bit key
 
 	// Parse str to UUIDv7
 	// error if provided string is invalid
