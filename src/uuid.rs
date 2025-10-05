@@ -1,15 +1,15 @@
-use crate::error::*;
+use crate::error::{UuidParseError, UuidValidationError};
 use crate::key::UuidV47Key;
-use crate::utils::*;
+use crate::utils::{ siphash24, read_48_big_endian, write_48_big_endian, hexval};
 
-/// A 128-bit UUID (UUIDv4 or UUIDv7).
+/// A 128-bit UUID (`UUIDv4` or `UUIDv7`).
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Uuid128 {
 	bytes: [u8; 16],
 }
 
 impl Uuid128 {
-	/// Create an empty UUIDv7
+	/// Create an empty `UUIDv7`
 	///
 	/// all bytes excluding version and variant bits are initialized with zero.
 	///
@@ -18,6 +18,7 @@ impl Uuid128 {
 	/// let uuid = uuid47::Uuid128::empty();
 	/// assert_eq!(uuid.to_string(), "00000000-0000-7000-8000-000000000000");
 	/// ```
+	#[must_use]
 	pub fn empty() -> Self {
 		let mut out = Self { bytes: [0u8; 16] };
 		out.set_version(7);
@@ -29,7 +30,12 @@ impl Uuid128 {
 	/// Create a UUID from raw 16 bytes
 	///
 	/// Always validate version and variant bits.<br>
-	/// Returns an error if the bytes do not represent a valid UUIDv4 or UUIDv7 (RFC 4122).
+	/// Returns an error if the bytes do not represent a valid `UUIDv4` or `UUIDv7` (RFC 4122).
+	///
+	/// # Errors
+	///
+	/// * [`UuidValidationError::InvalidVersion`] - if the version is not 4 or 7.
+	/// * [`UuidValidationError::InvalidVariant`] - if the variant is not RFC 4122.
 	pub fn from_bytes(bytes: [u8; 16]) -> Result<Self, UuidValidationError> {
 		// Accept only version 4 or 7
 		let version = (bytes[6] >> 4) & 0x0F;
@@ -52,13 +58,15 @@ impl Uuid128 {
 	///
 	/// The caller must ensure the bytes represent a valid UUID (version and variant bits).<br>
 	/// Prefer using [`Uuid128::from_bytes`] for safe construction.
+	#[must_use]
 	pub unsafe fn new(bytes: [u8; 16]) -> Self {
 		Self { bytes }
 	}
 
 	/// Get this UUID version.
 	///
-	/// Returns 4 for UUIDv4, 7 for UUIDv7, or other values for invalid versions.
+	/// Returns 4 for `UUIDv4`, 7 for `UUIDv7`, or other values for invalid versions.
+	#[must_use]
 	pub fn uuid_version(&self) -> u8 {
 		(&self.bytes[6] >> 4) & 0x0F
 	}
@@ -77,8 +85,14 @@ impl Uuid128 {
 		self.bytes[8] = (self.bytes[8] & 0x3F) | 0x80;
 	}
 
-	/// Encode this UUIDv7 into UUIDv4 facade using UuidV47Key.
-	#[inline(always)]
+	/// Encode this `UUIDv7` into `UUIDv4` facade using `UuidV47Key`.
+	///
+	/// # Panics
+	///
+	/// This function does not validate the input `UUIDv7`.
+	/// So, invalid input may occur panic.
+	#[must_use]
+	#[inline]
 	pub fn encode_as_v4facade(&self, key: &UuidV47Key) -> Uuid128 {
 		//* 1. SipHash24(key, v7.random74bits) -> take low 48 bits */
 		let mut sipmsg = [0u8; 10];
@@ -106,8 +120,14 @@ impl Uuid128 {
 		out
 	}
 
-	/// Decode this UUIDv4 facade back into UUIDv7 using UuidV47Key.
-	#[inline(always)]
+	/// Decode this `UUIDv4` facade back into `UUIDv7` using `UuidV47Key`.
+	///
+	/// # Panics
+	///
+	/// This function does not validate the input `UUIDv4` facade.
+	/// So, invalid input may occur panic.
+	#[must_use]
+	#[inline]
 	pub fn decode_from_v4facade(&self, key: &UuidV47Key) -> Uuid128 {
 		// 1. rebuild same Sip input from facade (identical bytes)
 		let mut sipmsg = [0u8; 10];
@@ -139,34 +159,37 @@ impl std::str::FromStr for Uuid128 {
 	///
 	/// The valid UUID format is 8-4-4-4-12 hex string with dashes.
 	/// E.g. "550e8400-e29b-41d4-a716-446655440000"
-	#[inline(always)]
+	#[inline]
 	fn from_str(uuid_string: &str) -> Result<Self, Self::Err> {
 		// expects xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-		#[rustfmt::skip]
-		const IDXS: [usize; 32] = [
-			0, 1, 2, 3, 4, 5, 6, 7,
-			9, 10, 11, 12, 14, 15, 16, 17,
-			19, 20, 21, 22,
-			24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
-		];
-
 		if uuid_string.len() != 36 {
 			return Err(UuidParseError::InvalidLength);
 		}
 
-		let mut b = [0u8; 16];
-		for i in 0..16 {
-			let h = hexval(&uuid_string.as_bytes()[IDXS[i * 2]]);
-			let l = hexval(&uuid_string.as_bytes()[IDXS[i * 2 + 1]]);
+		let s = uuid_string.as_bytes();
 
-			if h < 0 || l < 0 {
-				return Err(UuidParseError::InvalidHex);
-			}
-
-			b[i] = ((h << 4) | l) as u8;
+		// Validate dashes at fixed positions
+		if s[8] != b'-' || s[13] != b'-' || s[18] != b'-' || s[23] != b'-' {
+			return Err(UuidParseError::InvalidHex);
 		}
 
-		Ok(Uuid128 { bytes: b })
+		let mut b = [0u8; 16];
+		let mut byte_idx = 0;
+
+		// Unrolled parsing for better performance
+		// Parse segments: 8-4-4-4-12
+		for &(start, end) in &[(0, 8), (9, 13), (14, 18), (19, 23), (24, 36)] {
+			let mut i = start;
+			while i < end {
+				let h = hexval(s[i]).ok_or(UuidParseError::InvalidHex)?;
+				let l = hexval(s[i + 1]).ok_or(UuidParseError::InvalidHex)?;
+				b[byte_idx] = (h << 4) | l;
+				byte_idx += 1;
+				i += 2;
+			}
+		}
+
+		Self::from_bytes(b).map_err(|_| UuidParseError::InvalidHex)
 	}
 }
 
@@ -206,7 +229,7 @@ impl std::fmt::Display for Uuid128 {
 	}
 }
 
-#[inline(always)]
+#[inline]
 fn build_sip_input_from_v7(u: &Uuid128, msg: &mut [u8; 10]) {
 	// [low-nibble of b6][b7][b8&0x3F][b9..b15]
 	msg[0] = u.bytes[6] & 0x0F;

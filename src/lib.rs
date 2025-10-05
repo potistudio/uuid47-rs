@@ -1,4 +1,4 @@
-//! A simple and lightweight library for converting between UUIDv7 and UUIDv4 facade.
+//! A simple and lightweight library for converting between `UUIDv7` and `UUIDv4` facade.
 //! This is a Rust implementation of [UUIDv47](https://github.com/stateless-me/uuidv47).
 //!
 //! # Features
@@ -14,19 +14,19 @@
 //! use uuid47::*;
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let s = "00000000-0000-7000-8000-000000000000";  // your UUIDv7 string
+//!     let s = "00000000-0000-7000-8000-000000000000";  // your `UUIDv7` string
 //!     let key = UuidV47Key::new(0x0123456789abcdef, 0xfedcba9876543210);  // your 128-bit key
 //!
-//!     // Parse str to UUIDv7
+//!     // Parse str to `UUIDv7`
 //!     // error if provided string is invalid
 //!     let v7: Uuid128 = s.parse()?;
 //!     println!("v7(DB)  : {}", v7);
 //!
-//!     // Encode UUIDv7 to UUIDv4 facade
+//!     // Encode `UUIDv7` to `UUIDv4` facade
 //!     let facade = v7.encode_as_v4facade(&key);
 //!     println!("v4(API) : {}", facade);
 //!
-//!     // Decode UUIDv4 facade to UUIDv7
+//!     // Decode `UUIDv4` facade to `UUIDv7`
 //!     let back = facade.decode_from_v4facade(&key);
 //!     println!("back    : {}", back);
 //!
@@ -49,9 +49,7 @@
 #![deny(rust_2018_idioms)]
 #![deny(unused)]
 #![warn(clippy::all)]
-#![warn(clippy::pedantic)]
 #![warn(clippy::cargo)]
-#![allow(clippy::module_name_repetitions)]
 
 mod error;
 mod key;

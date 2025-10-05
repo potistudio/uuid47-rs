@@ -33,7 +33,7 @@ pub enum UuidValidationError {
 	InvalidVersion,
 
 	/// The input bytes do not represent a valid UUID variant<br>
-	/// Valid variant is RFC 4122 (the variant used by UUIDv4 and UUIDv7).
+	/// Valid variant is RFC 4122 (the variant used by `UUIDv4` and `UUIDv7`).
 	InvalidVariant,
 }
 

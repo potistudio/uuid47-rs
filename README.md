@@ -25,10 +25,10 @@ All benchmarks were measured on
 - OS: Windows 10 22H2
 
 ```text
-encode_as_v4facade      time: 12.520 ns
-decode_from_v4facade    time: 12.720 ns
-parse_uuid              time: 24.443 ns
-format_uuid             time: 69.642 ns
+encode_as_v4facade      time: 12.435 ns
+decode_from_v4facade    time: 12.437 ns
+parse_uuid              time: 23.886 ns
+format_uuid             time: 64.477 ns
 ```
 
 ## Installation

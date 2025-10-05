@@ -4,10 +4,20 @@ description = "A simple and lightweight library for converting between UUIDv7 an
 authors = [ "potistudio <potistudio@proton.me>" ]
 version = "1.0.0"
 license = "MIT"
+documentation = "https://docs.rs/uuid47"
 repository = "https://github.com/potistudio/uuid47-rs"
-keywords = [ "uuid", "uuidv4", "uuidv7", "uuidv47" ]
+homepage = "https://github.com/potistudio/uuid47-rs"
+keywords = [ "uuid", "uuidv4", "uuidv7", "uuidv47", "conversion" ]
+categories = [ "data-structures" ]
 readme = "README.md"
-edition = "2024"
+edition = "2021"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = []
 
 [dev-dependencies]
 criterion = "0.5"
