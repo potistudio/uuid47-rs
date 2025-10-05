@@ -204,28 +204,61 @@ impl std::fmt::Display for Uuid128 {
 	/// let uuid = uuid47::Uuid128::empty();
 	/// assert_eq!(uuid.to_string(), "00000000-0000-7000-8000-000000000000");
 	/// ```
-	#[inline(always)]
+	#[inline]
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		const HEXD: &[u8; 16] = b"0123456789abcdef";
-		let mut j = 0usize;
+		let b = &self.bytes;
 
-		let mut out = [0u8; 37];
-		out[36] = 0;
-		for i in 0..16 {
-			if i == 4 || i == 6 || i == 8 || i == 10 {
-				out[j] = b'-';
-				j += 1;
-			}
-			let byte = self.bytes[i];
-			out[j] = HEXD[((byte >> 4) & 0x0F) as usize];
-			j += 1;
-			out[j] = HEXD[(byte & 0x0F) as usize];
-			j += 1;
-		}
+		let mut out = [0u8; 36];
 
-		write!(f, "{}", unsafe {
-			std::str::from_utf8_unchecked(&out[..36])
-		})
+		// Unrolled loop for maximum performance
+		// Segment 1: bytes 0-3 (8 hex chars)
+		out[0] = HEXD[(b[0] >> 4) as usize];
+		out[1] = HEXD[(b[0] & 0x0F) as usize];
+		out[2] = HEXD[(b[1] >> 4) as usize];
+		out[3] = HEXD[(b[1] & 0x0F) as usize];
+		out[4] = HEXD[(b[2] >> 4) as usize];
+		out[5] = HEXD[(b[2] & 0x0F) as usize];
+		out[6] = HEXD[(b[3] >> 4) as usize];
+		out[7] = HEXD[(b[3] & 0x0F) as usize];
+		out[8] = b'-';
+
+		// Segment 2: bytes 4-5 (4 hex chars)
+		out[9] = HEXD[(b[4] >> 4) as usize];
+		out[10] = HEXD[(b[4] & 0x0F) as usize];
+		out[11] = HEXD[(b[5] >> 4) as usize];
+		out[12] = HEXD[(b[5] & 0x0F) as usize];
+		out[13] = b'-';
+
+		// Segment 3: bytes 6-7 (4 hex chars)
+		out[14] = HEXD[(b[6] >> 4) as usize];
+		out[15] = HEXD[(b[6] & 0x0F) as usize];
+		out[16] = HEXD[(b[7] >> 4) as usize];
+		out[17] = HEXD[(b[7] & 0x0F) as usize];
+		out[18] = b'-';
+
+		// Segment 4: bytes 8-9 (4 hex chars)
+		out[19] = HEXD[(b[8] >> 4) as usize];
+		out[20] = HEXD[(b[8] & 0x0F) as usize];
+		out[21] = HEXD[(b[9] >> 4) as usize];
+		out[22] = HEXD[(b[9] & 0x0F) as usize];
+		out[23] = b'-';
+
+		// Segment 5: bytes 10-15 (12 hex chars)
+		out[24] = HEXD[(b[10] >> 4) as usize];
+		out[25] = HEXD[(b[10] & 0x0F) as usize];
+		out[26] = HEXD[(b[11] >> 4) as usize];
+		out[27] = HEXD[(b[11] & 0x0F) as usize];
+		out[28] = HEXD[(b[12] >> 4) as usize];
+		out[29] = HEXD[(b[12] & 0x0F) as usize];
+		out[30] = HEXD[(b[13] >> 4) as usize];
+		out[31] = HEXD[(b[13] & 0x0F) as usize];
+		out[32] = HEXD[(b[14] >> 4) as usize];
+		out[33] = HEXD[(b[14] & 0x0F) as usize];
+		out[34] = HEXD[(b[15] >> 4) as usize];
+		out[35] = HEXD[(b[15] & 0x0F) as usize];
+
+		f.write_str(unsafe { std::str::from_utf8_unchecked(&out) })
 	}
 }
 

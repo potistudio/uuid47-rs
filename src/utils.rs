@@ -1,4 +1,4 @@
-#[inline]
+#[inline(always)]
 #[allow(clippy::cast_possible_truncation)]
 pub(crate) fn write_48_big_endian(dst: &mut [u8; 6], v48: u64) {
 	dst[0] = (v48 >> 40) as u8;
@@ -9,12 +9,12 @@ pub(crate) fn write_48_big_endian(dst: &mut [u8; 6], v48: u64) {
 	dst[5] = v48 as u8;
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn read_48_big_endian(src: [u8; 6]) -> u64 {
 	u64::from_be_bytes([0, 0, src[0], src[1], src[2], src[3], src[4], src[5]])
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn hexval(c: u8) -> Option<u8> {
 	match c {
 		b'0'..=b'9' => Some(c - b'0'),
@@ -25,7 +25,7 @@ pub(crate) fn hexval(c: u8) -> Option<u8> {
 }
 
 /// SipHash-2-4 (reference) in Rust
-#[inline]
+#[inline(always)]
 pub(crate) fn siphash24(input: &[u8], k0: u64, k1: u64) -> u64 {
 	let mut v0 = 0x736f_6d65_7073_6575_u64 ^ k0;
 	let mut v1 = 0x646f_7261_6e64_6f6d_u64 ^ k1;

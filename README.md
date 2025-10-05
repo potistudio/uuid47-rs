@@ -26,9 +26,9 @@ All benchmarks were measured on
 
 ```text
 encode_as_v4facade      time: 12.435 ns
-decode_from_v4facade    time: 12.437 ns
-parse_uuid              time: 23.886 ns
-format_uuid             time: 64.477 ns
+decode_from_v4facade    time: 11.906 ns
+parse_uuid              time: 13.741 ns
+format_uuid             time: 52.631 ns
 ```
 
 ## Installation
