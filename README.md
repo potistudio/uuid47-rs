@@ -17,10 +17,10 @@ This is a Rust implementation of [UUIDv47](https://github.com/stateless-me/uuidv
 
 ## Benchmarks
 
-All benchmarks were measured on
+### Machine 1
 
 - CPU: AMD Ryzen 5 5600X
-- RAM: DDR4 2133MHz
+- RAM: DDR4 16GB 2133MHz
 - rustc: v1.90.0
 - OS: Windows 10 22H2
 
@@ -29,6 +29,21 @@ encode_as_v4facade      time: 12.435 ns
 decode_from_v4facade    time: 11.906 ns
 parse_uuid              time: 13.681 ns
 format_uuid             time: 45.141 ns
+```
+
+### Machine 2
+
+- CPU Apple M4
+- RAM LPDDR5 16GB
+- rustc: v1.90.0
+- OS: macOS 15.7.1
+
+```text
+Rust:
+encode_as_v4facade      time: 7.1495 ns
+decode_from_v4facade    time: 7.2370 ns
+parse_uuid              time: 8.7596 ns
+format_uuid             time: 18.015 ns
 ```
 
 ## Installation
