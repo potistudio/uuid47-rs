@@ -153,6 +153,162 @@ impl Uuid128 {
 		out.set_variant_rfc4122();
 		out
 	}
+
+	/// Format the UUID into a 36-byte buffer directly (no heap allocation).
+	///
+	/// This is faster than `to_string()` when you can provide your own buffer.
+	///
+	/// # Examples
+	///
+	/// ```
+	/// let uuid = uuid47::Uuid128::empty();
+	/// let mut buf = [0u8; 36];
+	/// uuid.format_to_buf(&mut buf);
+	/// assert_eq!(&buf, b"00000000-0000-7000-8000-000000000000");
+	/// ```
+	#[inline]
+	pub fn format_to_buf(&self, buf: &mut [u8; 36]) {
+		// SIMD path for aarch64
+		#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+		{
+			let mut hex_buf = [0u8; 32];
+			// SAFETY: self.bytes is exactly 16 bytes, hex_buf is 32 bytes
+			unsafe { crate::simd::format_hex_simd(&self.bytes, &mut hex_buf) };
+
+			buf[0..8].copy_from_slice(&hex_buf[0..8]);
+			buf[8] = b'-';
+			buf[9..13].copy_from_slice(&hex_buf[8..12]);
+			buf[13] = b'-';
+			buf[14..18].copy_from_slice(&hex_buf[12..16]);
+			buf[18] = b'-';
+			buf[19..23].copy_from_slice(&hex_buf[16..20]);
+			buf[23] = b'-';
+			buf[24..36].copy_from_slice(&hex_buf[20..32]);
+		}
+
+		// Scalar fallback path
+		#[cfg(not(all(feature = "simd", target_arch = "aarch64")))]
+		{
+			let b = &self.bytes;
+			unsafe {
+				let dst = buf.as_mut_ptr();
+				std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[0] as usize].as_ptr(), dst, 2);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[1] as usize].as_ptr(),
+					dst.add(2),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[2] as usize].as_ptr(),
+					dst.add(4),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[3] as usize].as_ptr(),
+					dst.add(6),
+					2,
+				);
+				*dst.add(8) = b'-';
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[4] as usize].as_ptr(),
+					dst.add(9),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[5] as usize].as_ptr(),
+					dst.add(11),
+					2,
+				);
+				*dst.add(13) = b'-';
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[6] as usize].as_ptr(),
+					dst.add(14),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[7] as usize].as_ptr(),
+					dst.add(16),
+					2,
+				);
+				*dst.add(18) = b'-';
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[8] as usize].as_ptr(),
+					dst.add(19),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[9] as usize].as_ptr(),
+					dst.add(21),
+					2,
+				);
+				*dst.add(23) = b'-';
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[10] as usize].as_ptr(),
+					dst.add(24),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[11] as usize].as_ptr(),
+					dst.add(26),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[12] as usize].as_ptr(),
+					dst.add(28),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[13] as usize].as_ptr(),
+					dst.add(30),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[14] as usize].as_ptr(),
+					dst.add(32),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[15] as usize].as_ptr(),
+					dst.add(34),
+					2,
+				);
+			}
+		}
+	}
+
+	/// Format the UUID and return it as a UTF-8 string slice.
+	///
+	/// This writes to the provided buffer and returns a `&str` view into it.
+	///
+	/// # Examples
+	///
+	/// ```
+	/// let uuid = uuid47::Uuid128::empty();
+	/// let mut buf = [0u8; 36];
+	/// let s = uuid.format_to_str(&mut buf);
+	/// assert_eq!(s, "00000000-0000-7000-8000-000000000000");
+	/// ```
+	#[inline]
+	pub fn format_to_str<'a>(&self, buf: &'a mut [u8; 36]) -> &'a str {
+		self.format_to_buf(buf);
+		// SAFETY: format_to_buf only writes ASCII hex and '-'
+		unsafe { std::str::from_utf8_unchecked(buf) }
+	}
+
+	/// Get the raw 16-byte representation of this UUID.
+	///
+	/// # Examples
+	///
+	/// ```
+	/// let uuid = uuid47::Uuid128::empty();
+	/// let bytes = uuid.as_bytes();
+	/// assert_eq!(bytes[6] >> 4, 7); // version 7
+	/// ```
+	#[must_use]
+	#[inline]
+	pub fn as_bytes(&self) -> &[u8; 16] {
+		&self.bytes
+	}
 }
 
 impl std::str::FromStr for Uuid128 {
