@@ -34,7 +34,7 @@ pub(crate) fn parse_hex_runtime(input: &[u8]) -> Option<[u8; 16]> {
 /// - AVX2 is only invoked after verifying CPU support.
 /// - SSE2/SSSE3 are guaranteed features on all x86_64 CPUs.
 #[inline]
-pub(crate) fn format_hex_runtime(input: &[u8; 16], output: &mut [u8]) {
+pub(crate) fn format_hex_runtime(input: &[u8; 16], output: &mut [u8; 32]) {
 	if is_x86_feature_detected!("avx2") {
 		// SAFETY: AVX2 support verified by is_x86_feature_detected
 		unsafe { format_hex_avx2(input, output) }
@@ -130,12 +130,10 @@ unsafe fn parse_hex_avx2(input: &[u8]) -> Option<[u8; 16]> {
 ///
 /// # Safety
 ///
-/// - `output` must have at least 32 bytes of space.
 /// - Requires AVX2 support.
 #[target_feature(enable = "avx2")]
 #[inline]
-unsafe fn format_hex_avx2(input: &[u8; 16], output: &mut [u8]) {
-	debug_assert!(output.len() >= 32);
+unsafe fn format_hex_avx2(input: &[u8; 16], output: &mut [u8; 32]) {
 
 	// Load input bytes into 128-bit register, then broadcast to 256-bit
 	let bytes_128 = _mm_loadu_si128(input.as_ptr() as *const __m128i);
@@ -318,12 +316,10 @@ unsafe fn combine_nibbles_sse(nibbles: __m128i) -> __m128i {
 ///
 /// # Safety
 ///
-/// - `output` must have at least 32 bytes of space.
 /// - Requires SSE2 and SSSE3 support.
 #[target_feature(enable = "sse2", enable = "ssse3")]
 #[inline]
-pub(crate) unsafe fn format_hex_sse(input: &[u8; 16], output: &mut [u8]) {
-	debug_assert!(output.len() >= 32);
+pub(crate) unsafe fn format_hex_sse(input: &[u8; 16], output: &mut [u8; 32]) {
 
 	// Load input bytes
 	let bytes = _mm_loadu_si128(input.as_ptr() as *const __m128i);

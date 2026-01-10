@@ -112,13 +112,8 @@ unsafe fn combine_nibbles_neon(nibbles: uint8x16_t) -> uint8x8_t {
 /// SIMD-accelerated bytes to hex string conversion (ARM NEON).
 ///
 /// Converts 16 bytes into 32 hex characters using NEON vector operations.
-///
-/// # Safety
-///
-/// - `output` must have at least 32 bytes of space.
 #[inline]
-pub(crate) unsafe fn format_hex_simd(input: &[u8; 16], output: &mut [u8]) {
-	debug_assert!(output.len() >= 32);
+pub(crate) unsafe fn format_hex_simd(input: &[u8; 16], output: &mut [u8; 32]) {
 
 	// Load input bytes
 	let bytes = vld1q_u8(input.as_ptr());
