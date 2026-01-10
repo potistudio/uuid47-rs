@@ -1,7 +1,12 @@
 use zeroize::Zeroize;
 
 /// Key structure for `UUIDv47` encoding/decoding.
-#[derive(Clone, Copy, Zeroize)]
+///
+/// This type implements `Zeroize` to securely erase key material on drop.
+/// It deliberately does NOT implement `Copy` because bitwise copying would
+/// defeat the purpose of secure erasure.
+#[derive(Clone, Zeroize)]
+#[zeroize(drop)]
 pub struct UuidV47Key {
 	/// First 64 bits of the key.
 	k0: u64,
