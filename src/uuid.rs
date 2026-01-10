@@ -1,4 +1,4 @@
-use crate::error::{UuidParseError, UuidValidationError};
+use crate::error::UuidParseError;
 use crate::key::UuidV47Key;
 use crate::utils::{read_48_big_endian, siphash24, write_48_big_endian};
 
@@ -35,19 +35,19 @@ impl Uuid128 {
 	///
 	/// # Errors
 	///
-	/// * [`UuidValidationError::InvalidVersion`] - if the version is not 4 or 7.
-	/// * [`UuidValidationError::InvalidVariant`] - if the variant is not RFC 4122.
-	pub fn from_bytes(bytes: [u8; 16]) -> Result<Self, UuidValidationError> {
+	/// * [`UuidParseError::InvalidVersion`] - if the version is not 4 or 7.
+	/// * [`UuidParseError::InvalidVariant`] - if the variant is not RFC 4122.
+	pub fn from_bytes(bytes: [u8; 16]) -> Result<Self, UuidParseError> {
 		// Accept only version 4 or 7
 		let version = (bytes[6] >> 4) & 0x0F;
 		if version != 4 && version != 7 {
-			return Err(UuidValidationError::InvalidVersion);
+			return Err(UuidParseError::InvalidVersion);
 		}
 
 		// Variant: bits 6-7 of byte 8 must be 10xxxxxx (RFC 4122)
 		let variant = (bytes[8] & 0xC0) >> 6;
 		if variant != 0b10 {
-			return Err(UuidValidationError::InvalidVariant);
+			return Err(UuidParseError::InvalidVariant);
 		}
 
 		Ok(Self { bytes })
@@ -55,12 +55,23 @@ impl Uuid128 {
 
 	/// Create a UUID from raw 16 bytes **without validating**.
 	///
-	/// # Safety
+	/// This is a `const fn` that performs no validation. The caller is responsible
+	/// for ensuring the bytes represent a valid UUID (version and variant bits).
 	///
-	/// The caller must ensure the bytes represent a valid UUID (version and variant bits).<br>
-	/// Prefer using [`Uuid128::from_bytes`] for safe construction.
+	/// Prefer using [`Uuid128::from_bytes`] for safe construction with validation.
+	///
+	/// # Examples
+	///
+	/// ```
+	/// // Known-valid UUID bytes
+	/// let bytes = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x70, 0x00,
+	///              0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+	/// let uuid = uuid47::Uuid128::from_bytes_unchecked(bytes);
+	/// assert_eq!(uuid.uuid_version(), 7);
+	/// ```
 	#[must_use]
-	pub unsafe fn new(bytes: [u8; 16]) -> Self {
+	#[inline]
+	pub const fn from_bytes_unchecked(bytes: [u8; 16]) -> Self {
 		Self { bytes }
 	}
 
@@ -152,7 +163,10 @@ impl Uuid128 {
 
 	/// Format the UUID into a 36-byte buffer directly (no heap allocation).
 	///
-	/// This is faster than `to_string()` when you can provide your own buffer.
+	/// # Performance
+	///
+	/// This method is significantly faster than [`to_string()`](std::string::ToString::to_string)
+	/// because it avoids heap allocation. Use this when performance is critical.
 	///
 	/// # Examples
 	///
@@ -170,6 +184,11 @@ impl Uuid128 {
 	/// Format the UUID and return it as a UTF-8 string slice.
 	///
 	/// This writes to the provided buffer and returns a `&str` view into it.
+	///
+	/// # Performance
+	///
+	/// This method is significantly faster than [`to_string()`](std::string::ToString::to_string)
+	/// because it avoids heap allocation. Use this when performance is critical.
 	///
 	/// # Examples
 	///
@@ -200,6 +219,21 @@ impl Uuid128 {
 	pub fn as_bytes(&self) -> &[u8; 16] {
 		&self.bytes
 	}
+
+	/// Consume this UUID and return the raw 16-byte array.
+	///
+	/// # Examples
+	///
+	/// ```
+	/// let uuid = uuid47::Uuid128::empty();
+	/// let bytes: [u8; 16] = uuid.into_bytes();
+	/// assert_eq!(bytes[6] >> 4, 7); // version 7
+	/// ```
+	#[must_use]
+	#[inline]
+	pub fn into_bytes(self) -> [u8; 16] {
+		self.bytes
+	}
 }
 
 impl std::str::FromStr for Uuid128 {
@@ -212,7 +246,7 @@ impl std::str::FromStr for Uuid128 {
 	#[inline]
 	fn from_str(uuid_string: &str) -> Result<Self, Self::Err> {
 		let bytes = crate::simd::parse_uuid_str(uuid_string)?;
-		Self::from_bytes(bytes).map_err(|_| UuidParseError::InvalidHex)
+		Self::from_bytes(bytes)
 	}
 }
 

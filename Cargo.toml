@@ -2,7 +2,7 @@
 name = "uuid47"
 description = "A simple and lightweight library for converting between UUIDv7 and UUIDv4 facade."
 authors = ["potistudio <potistudio@proton.me>"]
-version = "1.0.0"
+version = "2.0.0"
 license = "MIT"
 documentation = "https://docs.rs/uuid47"
 repository = "https://github.com/potistudio/uuid47-rs"
@@ -19,9 +19,11 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["simd"]
 simd = []         # Enable SIMD optimizations (ARM NEON / x86 SSE)
+keygen = ["rand"]  # Enable UuidV47Key::random() for key generation
 
 [dependencies]
 zeroize = { version = "1", features = ["derive"] }
+rand = { version = "0.9", optional = true }
 
 [dev-dependencies]
 criterion = "0.5"

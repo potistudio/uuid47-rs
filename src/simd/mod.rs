@@ -79,6 +79,7 @@ fn insert_dashes(hex: &[u8; 32], buf: &mut [u8; 36]) {
 ///
 /// Handles validation and selects the optimal parsing strategy.
 #[inline(always)]
+#[allow(clippy::needless_return)]
 pub fn parse_uuid_str(uuid_string: &str) -> Result<[u8; 16], UuidParseError> {
 	// expects xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 	if uuid_string.len() != 36 {
@@ -107,10 +108,10 @@ pub fn parse_uuid_str(uuid_string: &str) -> Result<[u8; 16], UuidParseError> {
 	{
 		let hex_input = strip_dashes(s);
 		// SAFETY: hex_input is exactly 32 bytes.
-		match unsafe { parse_hex_simd(&hex_input) } {
-			Some(bytes) => return Ok(bytes),
-			None => return Err(UuidParseError::InvalidHex),
-		}
+		return match unsafe { parse_hex_simd(&hex_input) } {
+			Some(bytes) => Ok(bytes),
+			None => Err(UuidParseError::InvalidHex),
+		};
 	}
 
 	// Scalar fallback path

@@ -14,7 +14,7 @@ This is a Rust implementation of [UUIDv47](https://github.com/stateless-me/uuidv
 - **🛡 Safe**: Implemented all APIs in safe Rust.
 - **🔰 Easy**: Provides simple object-oriented API.
 - **🚀 Fast**: Designed to eliminate overhead and run at high performance.
-- **📦 Lightweight** Zero dependencies.
+- **📦 Lightweight**: Minimal dependencies (only `zeroize` for secure key handling).
 
 ## Benchmarks
 

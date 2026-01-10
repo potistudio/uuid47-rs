@@ -33,6 +33,25 @@ impl UuidV47Key {
 	pub(crate) fn k1(&self) -> u64 {
 		self.k1
 	}
+
+	/// Generate a cryptographically random key.
+	///
+	/// This method requires the `random-key` feature.
+	///
+	/// # Examples
+	///
+	/// ```ignore
+	/// // Enable the `random-key` feature first
+	/// let key = uuid47::UuidV47Key::random();
+	/// ```
+	#[cfg(feature = "keygen")]
+	#[cfg_attr(docsrs, doc(cfg(feature = "keygen")))]
+	#[must_use]
+	pub fn random() -> Self {
+		use rand::Rng;
+		let mut rng = rand::rng();
+		Self::new(rng.random(), rng.random())
+	}
 }
 
 impl std::fmt::Debug for UuidV47Key {

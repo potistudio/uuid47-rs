@@ -41,7 +41,7 @@
 //! // back    : 00000000-0000-7000-8000-000000000000
 //! ```
 
-#![doc(html_root_url = "https://docs.rs/uuid47/1.0.0")]
+#![doc(html_root_url = "https://docs.rs/uuid47/2.0.0")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
@@ -57,11 +57,11 @@ mod simd;
 mod utils;
 mod uuid;
 
-pub use error::{UuidParseError, UuidValidationError};
+pub use error::UuidParseError;
 pub use key::UuidV47Key;
 pub use uuid::Uuid128;
 
 /// Re-export of common types for convenience.
 pub mod prelude {
-	pub use crate::{Uuid128, UuidParseError, UuidV47Key, UuidValidationError};
+	pub use crate::{Uuid128, UuidParseError, UuidV47Key};
 }
