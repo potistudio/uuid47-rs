@@ -29,6 +29,52 @@ use aarch64::{format_hex_simd, parse_hex_simd};
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use x86_64::{format_hex_runtime, parse_hex_runtime};
 
+// ============================================================================
+// Dash handling helpers (shared across all SIMD paths)
+// ============================================================================
+
+/// Strip dashes from a 36-byte UUID string, producing 32 hex characters.
+///
+/// UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (8-4-4-4-12)
+#[cfg(any(
+	all(feature = "simd", target_arch = "aarch64"),
+	all(feature = "simd", target_arch = "x86_64")
+))]
+#[inline(always)]
+fn strip_dashes(s: &[u8]) -> [u8; 32] {
+	let mut hex = [0u8; 32];
+	hex[0..8].copy_from_slice(&s[0..8]);
+	hex[8..12].copy_from_slice(&s[9..13]);
+	hex[12..16].copy_from_slice(&s[14..18]);
+	hex[16..20].copy_from_slice(&s[19..23]);
+	hex[20..32].copy_from_slice(&s[24..36]);
+	hex
+}
+
+/// Insert dashes into a 32-byte hex buffer, producing a 36-byte UUID string.
+///
+/// UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (8-4-4-4-12)
+#[cfg(any(
+	all(feature = "simd", target_arch = "aarch64"),
+	all(feature = "simd", target_arch = "x86_64")
+))]
+#[inline(always)]
+fn insert_dashes(hex: &[u8; 32], buf: &mut [u8; 36]) {
+	buf[0..8].copy_from_slice(&hex[0..8]);
+	buf[8] = b'-';
+	buf[9..13].copy_from_slice(&hex[8..12]);
+	buf[13] = b'-';
+	buf[14..18].copy_from_slice(&hex[12..16]);
+	buf[18] = b'-';
+	buf[19..23].copy_from_slice(&hex[16..20]);
+	buf[23] = b'-';
+	buf[24..36].copy_from_slice(&hex[20..32]);
+}
+
+// ============================================================================
+// Public API
+// ============================================================================
+
 /// Parse a UUID string (36 chars, with dashes) into 16 bytes.
 ///
 /// Handles validation and selects the optimal parsing strategy.
@@ -49,17 +95,7 @@ pub fn parse_uuid_str(uuid_string: &str) -> Result<[u8; 16], UuidParseError> {
 	// x86_64 SIMD path with runtime AVX2/SSE detection
 	#[cfg(all(feature = "simd", target_arch = "x86_64"))]
 	{
-		// Strip dashes and create 32-byte hex input
-		let mut hex_input = [0u8; 32];
-
-		// Unroll copy for performance
-		hex_input[0..8].copy_from_slice(&s[0..8]);
-		hex_input[8..12].copy_from_slice(&s[9..13]);
-		hex_input[12..16].copy_from_slice(&s[14..18]);
-		hex_input[16..20].copy_from_slice(&s[19..23]);
-		hex_input[20..32].copy_from_slice(&s[24..36]);
-
-		// Use runtime dispatch (AVX2 if available, else SSE)
+		let hex_input = strip_dashes(s);
 		match parse_hex_runtime(&hex_input) {
 			Some(bytes) => return Ok(bytes),
 			None => return Err(UuidParseError::InvalidHex),
@@ -69,15 +105,7 @@ pub fn parse_uuid_str(uuid_string: &str) -> Result<[u8; 16], UuidParseError> {
 	// aarch64 SIMD path
 	#[cfg(all(feature = "simd", target_arch = "aarch64"))]
 	{
-		// Strip dashes and create 32-byte hex input
-		let mut hex_input = [0u8; 32];
-
-		hex_input[0..8].copy_from_slice(&s[0..8]);
-		hex_input[8..12].copy_from_slice(&s[9..13]);
-		hex_input[12..16].copy_from_slice(&s[14..18]);
-		hex_input[16..20].copy_from_slice(&s[19..23]);
-		hex_input[20..32].copy_from_slice(&s[24..36]);
-
+		let hex_input = strip_dashes(s);
 		// SAFETY: hex_input is exactly 32 bytes.
 		match unsafe { parse_hex_simd(&hex_input) } {
 			Some(bytes) => return Ok(bytes),
@@ -104,19 +132,8 @@ pub fn format_uuid_buf(bytes: &[u8; 16], buf: &mut [u8; 36]) {
 	#[cfg(all(feature = "simd", target_arch = "x86_64"))]
 	{
 		let mut hex_buf = [0u8; 32];
-		// Use runtime dispatch (AVX2 if available, else SSE)
 		format_hex_runtime(bytes, &mut hex_buf);
-
-		// Insert hex chars with dashes
-		buf[0..8].copy_from_slice(&hex_buf[0..8]);
-		buf[8] = b'-';
-		buf[9..13].copy_from_slice(&hex_buf[8..12]);
-		buf[13] = b'-';
-		buf[14..18].copy_from_slice(&hex_buf[12..16]);
-		buf[18] = b'-';
-		buf[19..23].copy_from_slice(&hex_buf[16..20]);
-		buf[23] = b'-';
-		buf[24..36].copy_from_slice(&hex_buf[20..32]);
+		insert_dashes(&hex_buf, buf);
 	}
 
 	// aarch64 SIMD path
@@ -125,16 +142,7 @@ pub fn format_uuid_buf(bytes: &[u8; 16], buf: &mut [u8; 36]) {
 		let mut hex_buf = [0u8; 32];
 		// SAFETY: bytes is exactly 16 bytes, hex_buf is 32 bytes
 		unsafe { format_hex_simd(bytes, &mut hex_buf) };
-
-		buf[0..8].copy_from_slice(&hex_buf[0..8]);
-		buf[8] = b'-';
-		buf[9..13].copy_from_slice(&hex_buf[8..12]);
-		buf[13] = b'-';
-		buf[14..18].copy_from_slice(&hex_buf[12..16]);
-		buf[18] = b'-';
-		buf[19..23].copy_from_slice(&hex_buf[16..20]);
-		buf[23] = b'-';
-		buf[24..36].copy_from_slice(&hex_buf[20..32]);
+		insert_dashes(&hex_buf, buf);
 	}
 
 	// Scalar fallback path
