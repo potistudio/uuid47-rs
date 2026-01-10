@@ -53,6 +53,8 @@
 
 mod error;
 mod key;
+#[cfg(feature = "simd")]
+mod simd;
 mod utils;
 mod uuid;
 

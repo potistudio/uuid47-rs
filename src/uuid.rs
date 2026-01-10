@@ -1,6 +1,8 @@
 use crate::error::{UuidParseError, UuidValidationError};
 use crate::key::UuidV47Key;
-use crate::utils::{hexval, read_48_big_endian, siphash24, write_48_big_endian};
+#[cfg(not(all(feature = "simd", target_arch = "aarch64")))]
+use crate::utils::hexval;
+use crate::utils::{read_48_big_endian, siphash24, write_48_big_endian};
 
 /// A 128-bit UUID (`UUIDv4` or `UUIDv7`).
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -174,27 +176,51 @@ impl std::str::FromStr for Uuid128 {
 			return Err(UuidParseError::InvalidHex);
 		}
 
-		let mut b = [0u8; 16];
-		let mut byte_idx = 0;
+		// SIMD path for aarch64
+		#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+		{
+			// Strip dashes and create 32-byte hex input
+			let mut hex_input = [0u8; 32];
+			hex_input[0..8].copy_from_slice(&s[0..8]);
+			hex_input[8..12].copy_from_slice(&s[9..13]);
+			hex_input[12..16].copy_from_slice(&s[14..18]);
+			hex_input[16..20].copy_from_slice(&s[19..23]);
+			hex_input[20..32].copy_from_slice(&s[24..36]);
 
-		// Unrolled parsing for better performance
-		// Parse segments: 8-4-4-4-12
-		for &(start, end) in &[(0, 8), (9, 13), (14, 18), (19, 23), (24, 36)] {
-			let mut i = start;
-			while i < end {
-				let h = hexval(s[i]).ok_or(UuidParseError::InvalidHex)?;
-				let l = hexval(s[i + 1]).ok_or(UuidParseError::InvalidHex)?;
-				b[byte_idx] = (h << 4) | l;
-				byte_idx += 1;
-				i += 2;
-			}
+			// Use SIMD parsing
+			// SAFETY: hex_input is exactly 32 bytes, validation is done inside parse_hex_simd
+			let b = unsafe { crate::simd::parse_hex_simd(&hex_input) }
+				.ok_or(UuidParseError::InvalidHex)?;
+
+			Self::from_bytes(b).map_err(|_| UuidParseError::InvalidHex)
 		}
 
-		Self::from_bytes(b).map_err(|_| UuidParseError::InvalidHex)
+		// Scalar fallback path
+		#[cfg(not(all(feature = "simd", target_arch = "aarch64")))]
+		{
+			let mut b = [0u8; 16];
+			let mut byte_idx = 0;
+
+			// Unrolled parsing for better performance
+			// Parse segments: 8-4-4-4-12
+			for &(start, end) in &[(0, 8), (9, 13), (14, 18), (19, 23), (24, 36)] {
+				let mut i = start;
+				while i < end {
+					let h = hexval(s[i]).ok_or(UuidParseError::InvalidHex)?;
+					let l = hexval(s[i + 1]).ok_or(UuidParseError::InvalidHex)?;
+					b[byte_idx] = (h << 4) | l;
+					byte_idx += 1;
+					i += 2;
+				}
+			}
+
+			Self::from_bytes(b).map_err(|_| UuidParseError::InvalidHex)
+		}
 	}
 }
 
-// 256 エントリ、各エントリは 2 バイト (ascii nibble -> two ascii chars)
+// 256 entries, each entry is 2 bytes (byte value -> two ascii hex chars)
+#[cfg(not(all(feature = "simd", target_arch = "aarch64")))]
 const HEX_PAIR_TABLE: [[u8; 2]; 256] = {
 	const fn make_table() -> [[u8; 2]; 256] {
 		let mut t = [[0u8; 2]; 256];
@@ -234,44 +260,127 @@ impl std::fmt::Display for Uuid128 {
 	/// ```
 	#[inline]
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		// Optimized: Direct write using u16 native writes
 		let mut out = [0u8; 36];
-		let b = &self.bytes;
 
-		// Use unsafe ptr::copy_nonoverlapping for optimal codegen
-		// Each HEX_PAIR_TABLE entry is [u8; 2], write as u16 for efficiency
-		unsafe {
-			let dst = out.as_mut_ptr();
+		// SIMD path for aarch64
+		#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+		{
+			// Use SIMD to convert bytes to hex
+			let mut hex_buf = [0u8; 32];
+			// SAFETY: self.bytes is exactly 16 bytes, hex_buf is 32 bytes
+			unsafe { crate::simd::format_hex_simd(&self.bytes, &mut hex_buf) };
 
-			// Segment 1: bytes 0-3 (8 hex chars) -> out[0..8]
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[0] as usize].as_ptr(), dst, 2);
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[1] as usize].as_ptr(), dst.add(2), 2);
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[2] as usize].as_ptr(), dst.add(4), 2);
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[3] as usize].as_ptr(), dst.add(6), 2);
-			*dst.add(8) = b'-';
+			// Insert hex chars with dashes
+			out[0..8].copy_from_slice(&hex_buf[0..8]);
+			out[8] = b'-';
+			out[9..13].copy_from_slice(&hex_buf[8..12]);
+			out[13] = b'-';
+			out[14..18].copy_from_slice(&hex_buf[12..16]);
+			out[18] = b'-';
+			out[19..23].copy_from_slice(&hex_buf[16..20]);
+			out[23] = b'-';
+			out[24..36].copy_from_slice(&hex_buf[20..32]);
+		}
 
-			// Segment 2: bytes 4-5 (4 hex chars) -> out[9..13]
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[4] as usize].as_ptr(), dst.add(9), 2);
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[5] as usize].as_ptr(), dst.add(11), 2);
-			*dst.add(13) = b'-';
+		// Scalar fallback path
+		#[cfg(not(all(feature = "simd", target_arch = "aarch64")))]
+		{
+			let b = &self.bytes;
 
-			// Segment 3: bytes 6-7 (4 hex chars) -> out[14..18]
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[6] as usize].as_ptr(), dst.add(14), 2);
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[7] as usize].as_ptr(), dst.add(16), 2);
-			*dst.add(18) = b'-';
+			// Use unsafe ptr::copy_nonoverlapping for optimal codegen
+			unsafe {
+				let dst = out.as_mut_ptr();
 
-			// Segment 4: bytes 8-9 (4 hex chars) -> out[19..23]
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[8] as usize].as_ptr(), dst.add(19), 2);
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[9] as usize].as_ptr(), dst.add(21), 2);
-			*dst.add(23) = b'-';
+				// Segment 1: bytes 0-3 (8 hex chars) -> out[0..8]
+				std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[0] as usize].as_ptr(), dst, 2);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[1] as usize].as_ptr(),
+					dst.add(2),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[2] as usize].as_ptr(),
+					dst.add(4),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[3] as usize].as_ptr(),
+					dst.add(6),
+					2,
+				);
+				*dst.add(8) = b'-';
 
-			// Segment 5: bytes 10-15 (12 hex chars) -> out[24..36]
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[10] as usize].as_ptr(), dst.add(24), 2);
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[11] as usize].as_ptr(), dst.add(26), 2);
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[12] as usize].as_ptr(), dst.add(28), 2);
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[13] as usize].as_ptr(), dst.add(30), 2);
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[14] as usize].as_ptr(), dst.add(32), 2);
-			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[15] as usize].as_ptr(), dst.add(34), 2);
+				// Segment 2: bytes 4-5 (4 hex chars) -> out[9..13]
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[4] as usize].as_ptr(),
+					dst.add(9),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[5] as usize].as_ptr(),
+					dst.add(11),
+					2,
+				);
+				*dst.add(13) = b'-';
+
+				// Segment 3: bytes 6-7 (4 hex chars) -> out[14..18]
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[6] as usize].as_ptr(),
+					dst.add(14),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[7] as usize].as_ptr(),
+					dst.add(16),
+					2,
+				);
+				*dst.add(18) = b'-';
+
+				// Segment 4: bytes 8-9 (4 hex chars) -> out[19..23]
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[8] as usize].as_ptr(),
+					dst.add(19),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[9] as usize].as_ptr(),
+					dst.add(21),
+					2,
+				);
+				*dst.add(23) = b'-';
+
+				// Segment 5: bytes 10-15 (12 hex chars) -> out[24..36]
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[10] as usize].as_ptr(),
+					dst.add(24),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[11] as usize].as_ptr(),
+					dst.add(26),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[12] as usize].as_ptr(),
+					dst.add(28),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[13] as usize].as_ptr(),
+					dst.add(30),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[14] as usize].as_ptr(),
+					dst.add(32),
+					2,
+				);
+				std::ptr::copy_nonoverlapping(
+					HEX_PAIR_TABLE[b[15] as usize].as_ptr(),
+					dst.add(34),
+					2,
+				);
+			}
 		}
 
 		// safe: we only put ASCII hex and '-'

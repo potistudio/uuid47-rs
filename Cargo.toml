@@ -18,6 +18,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
+simd = []  # Enable SIMD optimizations (ARM NEON / x86 SSE)
 
 [dev-dependencies]
 criterion = "0.5"
