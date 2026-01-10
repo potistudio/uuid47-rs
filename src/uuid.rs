@@ -4,6 +4,7 @@ use crate::utils::{hexval, read_48_big_endian, siphash24, write_48_big_endian};
 
 /// A 128-bit UUID (`UUIDv4` or `UUIDv7`).
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[repr(transparent)]
 pub struct Uuid128 {
 	bytes: [u8; 16],
 }
@@ -233,50 +234,45 @@ impl std::fmt::Display for Uuid128 {
 	/// ```
 	#[inline]
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		// hex_out: 32 bytes (2 chars per input byte)
-		let mut hex_out = [0u8; 32];
-
-		// expand each input byte into 2 ascii chars using table lookup
-		let b = &self.bytes;
-		// unroll a bit manually for speed
-		hex_out[0..2].copy_from_slice(&HEX_PAIR_TABLE[b[0] as usize]);
-		hex_out[2..4].copy_from_slice(&HEX_PAIR_TABLE[b[1] as usize]);
-		hex_out[4..6].copy_from_slice(&HEX_PAIR_TABLE[b[2] as usize]);
-		hex_out[6..8].copy_from_slice(&HEX_PAIR_TABLE[b[3] as usize]);
-		hex_out[8..10].copy_from_slice(&HEX_PAIR_TABLE[b[4] as usize]);
-		hex_out[10..12].copy_from_slice(&HEX_PAIR_TABLE[b[5] as usize]);
-		hex_out[12..14].copy_from_slice(&HEX_PAIR_TABLE[b[6] as usize]);
-		hex_out[14..16].copy_from_slice(&HEX_PAIR_TABLE[b[7] as usize]);
-		hex_out[16..18].copy_from_slice(&HEX_PAIR_TABLE[b[8] as usize]);
-		hex_out[18..20].copy_from_slice(&HEX_PAIR_TABLE[b[9] as usize]);
-		hex_out[20..22].copy_from_slice(&HEX_PAIR_TABLE[b[10] as usize]);
-		hex_out[22..24].copy_from_slice(&HEX_PAIR_TABLE[b[11] as usize]);
-		hex_out[24..26].copy_from_slice(&HEX_PAIR_TABLE[b[12] as usize]);
-		hex_out[26..28].copy_from_slice(&HEX_PAIR_TABLE[b[13] as usize]);
-		hex_out[28..30].copy_from_slice(&HEX_PAIR_TABLE[b[14] as usize]);
-		hex_out[30..32].copy_from_slice(&HEX_PAIR_TABLE[b[15] as usize]);
-
-		// final 36-byte output with dashes at positions 8,13,18,23
+		// Optimized: Direct write using u16 native writes
 		let mut out = [0u8; 36];
-		// segments:
-		// out[0..8]   <- hex_out[0..8]
-		out[0..8].copy_from_slice(&hex_out[0..8]);
-		out[8] = b'-';
+		let b = &self.bytes;
 
-		// out[9..13]  <- hex_out[8..12]
-		out[9..13].copy_from_slice(&hex_out[8..12]);
-		out[13] = b'-';
+		// Use unsafe ptr::copy_nonoverlapping for optimal codegen
+		// Each HEX_PAIR_TABLE entry is [u8; 2], write as u16 for efficiency
+		unsafe {
+			let dst = out.as_mut_ptr();
 
-		// out[14..18] <- hex_out[12..16]
-		out[14..18].copy_from_slice(&hex_out[12..16]);
-		out[18] = b'-';
+			// Segment 1: bytes 0-3 (8 hex chars) -> out[0..8]
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[0] as usize].as_ptr(), dst, 2);
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[1] as usize].as_ptr(), dst.add(2), 2);
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[2] as usize].as_ptr(), dst.add(4), 2);
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[3] as usize].as_ptr(), dst.add(6), 2);
+			*dst.add(8) = b'-';
 
-		// out[19..23] <- hex_out[16..20]
-		out[19..23].copy_from_slice(&hex_out[16..20]);
-		out[23] = b'-';
+			// Segment 2: bytes 4-5 (4 hex chars) -> out[9..13]
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[4] as usize].as_ptr(), dst.add(9), 2);
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[5] as usize].as_ptr(), dst.add(11), 2);
+			*dst.add(13) = b'-';
 
-		// out[24..36] <- hex_out[20..32] (12 chars)
-		out[24..36].copy_from_slice(&hex_out[20..32]);
+			// Segment 3: bytes 6-7 (4 hex chars) -> out[14..18]
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[6] as usize].as_ptr(), dst.add(14), 2);
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[7] as usize].as_ptr(), dst.add(16), 2);
+			*dst.add(18) = b'-';
+
+			// Segment 4: bytes 8-9 (4 hex chars) -> out[19..23]
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[8] as usize].as_ptr(), dst.add(19), 2);
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[9] as usize].as_ptr(), dst.add(21), 2);
+			*dst.add(23) = b'-';
+
+			// Segment 5: bytes 10-15 (12 hex chars) -> out[24..36]
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[10] as usize].as_ptr(), dst.add(24), 2);
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[11] as usize].as_ptr(), dst.add(26), 2);
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[12] as usize].as_ptr(), dst.add(28), 2);
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[13] as usize].as_ptr(), dst.add(30), 2);
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[14] as usize].as_ptr(), dst.add(32), 2);
+			std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[15] as usize].as_ptr(), dst.add(34), 2);
+		}
 
 		// safe: we only put ASCII hex and '-'
 		let s = unsafe { std::str::from_utf8_unchecked(&out) };

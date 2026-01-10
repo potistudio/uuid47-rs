@@ -1,3 +1,30 @@
+/// 256-entry lookup table for hex decoding. Returns -1 for invalid chars.
+const HEX_DECODE_TABLE: [i8; 256] = {
+	const fn make_table() -> [i8; 256] {
+		let mut t = [-1i8; 256];
+		let mut i = 0u8;
+		// '0'-'9' -> 0-9
+		while i < 10 {
+			t[(b'0' + i) as usize] = i as i8;
+			i += 1;
+		}
+		// 'a'-'f' -> 10-15
+		i = 0;
+		while i < 6 {
+			t[(b'a' + i) as usize] = (10 + i) as i8;
+			i += 1;
+		}
+		// 'A'-'F' -> 10-15
+		i = 0;
+		while i < 6 {
+			t[(b'A' + i) as usize] = (10 + i) as i8;
+			i += 1;
+		}
+		t
+	}
+	make_table()
+};
+
 #[inline(always)]
 #[allow(clippy::cast_possible_truncation)]
 pub(crate) fn write_48_big_endian(dst: &mut [u8; 6], v48: u64) {
@@ -9,22 +36,49 @@ pub(crate) fn write_48_big_endian(dst: &mut [u8; 6], v48: u64) {
 	dst[5] = v48 as u8;
 }
 
+/// Read 48-bit big-endian value using direct bit shifts (avoids array construction).
 #[inline(always)]
 pub(crate) fn read_48_big_endian(src: [u8; 6]) -> u64 {
-	u64::from_be_bytes([0, 0, src[0], src[1], src[2], src[3], src[4], src[5]])
+	((src[0] as u64) << 40)
+		| ((src[1] as u64) << 32)
+		| ((src[2] as u64) << 24)
+		| ((src[3] as u64) << 16)
+		| ((src[4] as u64) << 8)
+		| (src[5] as u64)
 }
 
+/// O(1) hex character to value lookup using precomputed table.
 #[inline(always)]
 pub(crate) fn hexval(c: u8) -> Option<u8> {
-	match c {
-		b'0'..=b'9' => Some(c - b'0'),
-		b'a'..=b'f' => Some(c - b'a' + 10),
-		b'A'..=b'F' => Some(c - b'A' + 10),
-		_ => None,
+	let v = HEX_DECODE_TABLE[c as usize];
+	if v < 0 {
+		None
+	} else {
+		Some(v as u8)
 	}
 }
 
-/// SipHash-2-4 (reference) in Rust
+/// SipHash round macro for complete unrolling (removes loop overhead).
+macro_rules! sip_round {
+	($v0:expr, $v1:expr, $v2:expr, $v3:expr) => {{
+		$v0 = $v0.wrapping_add($v1);
+		$v2 = $v2.wrapping_add($v3);
+		$v1 = $v1.rotate_left(13);
+		$v3 = $v3.rotate_left(16);
+		$v1 ^= $v0;
+		$v3 ^= $v2;
+		$v0 = $v0.rotate_left(32);
+		$v2 = $v2.wrapping_add($v1);
+		$v0 = $v0.wrapping_add($v3);
+		$v1 = $v1.rotate_left(17);
+		$v3 = $v3.rotate_left(21);
+		$v1 ^= $v2;
+		$v3 ^= $v0;
+		$v2 = $v2.rotate_left(32);
+	}};
+}
+
+/// SipHash-2-4 optimized implementation with unrolled rounds.
 #[inline(always)]
 pub(crate) fn siphash24(input: &[u8], k0: u64, k1: u64) -> u64 {
 	let mut v0 = 0x736f_6d65_7073_6575_u64 ^ k0;
@@ -38,23 +92,9 @@ pub(crate) fn siphash24(input: &[u8], k0: u64, k1: u64) -> u64 {
 	for chunk in chunks.by_ref() {
 		let m = u64::from_le_bytes(chunk.try_into().unwrap());
 		v3 ^= m;
-		// 2 compression rounds
-		for _ in 0..2 {
-			v0 = v0.wrapping_add(v1);
-			v2 = v2.wrapping_add(v3);
-			v1 = v1.rotate_left(13);
-			v3 = v3.rotate_left(16);
-			v1 ^= v0;
-			v3 ^= v2;
-			v0 = v0.rotate_left(32);
-			v2 = v2.wrapping_add(v1);
-			v0 = v0.wrapping_add(v3);
-			v1 = v1.rotate_left(17);
-			v3 = v3.rotate_left(21);
-			v1 ^= v2;
-			v3 ^= v0;
-			v2 = v2.rotate_left(32);
-		}
+		// 2 compression rounds (unrolled)
+		sip_round!(v0, v1, v2, v3);
+		sip_round!(v0, v1, v2, v3);
 		v0 ^= m;
 	}
 
@@ -67,41 +107,17 @@ pub(crate) fn siphash24(input: &[u8], k0: u64, k1: u64) -> u64 {
 	b |= t;
 
 	v3 ^= b;
-	for _ in 0..2 {
-		v0 = v0.wrapping_add(v1);
-		v2 = v2.wrapping_add(v3);
-		v1 = v1.rotate_left(13);
-		v3 = v3.rotate_left(16);
-		v1 ^= v0;
-		v3 ^= v2;
-		v0 = v0.rotate_left(32);
-		v2 = v2.wrapping_add(v1);
-		v0 = v0.wrapping_add(v3);
-		v1 = v1.rotate_left(17);
-		v3 = v3.rotate_left(21);
-		v1 ^= v2;
-		v3 ^= v0;
-		v2 = v2.rotate_left(32);
-	}
+	// 2 compression rounds (unrolled)
+	sip_round!(v0, v1, v2, v3);
+	sip_round!(v0, v1, v2, v3);
 	v0 ^= b;
 
 	v2 ^= 0xff;
-	for _ in 0..4 {
-		v0 = v0.wrapping_add(v1);
-		v2 = v2.wrapping_add(v3);
-		v1 = v1.rotate_left(13);
-		v3 = v3.rotate_left(16);
-		v1 ^= v0;
-		v3 ^= v2;
-		v0 = v0.rotate_left(32);
-		v2 = v2.wrapping_add(v1);
-		v0 = v0.wrapping_add(v3);
-		v1 = v1.rotate_left(17);
-		v3 = v3.rotate_left(21);
-		v1 ^= v2;
-		v3 ^= v0;
-		v2 = v2.rotate_left(32);
-	}
+	// 4 finalization rounds (unrolled)
+	sip_round!(v0, v1, v2, v3);
+	sip_round!(v0, v1, v2, v3);
+	sip_round!(v0, v1, v2, v3);
+	sip_round!(v0, v1, v2, v3);
 
 	v0 ^ v1 ^ v2 ^ v3
 }
@@ -120,5 +136,25 @@ mod tests {
 		let r = read_48_big_endian(buf);
 
 		assert_eq!(r, v);
+	}
+
+	#[test]
+	fn test_hexval_table() {
+		// Test digits
+		for i in 0..10 {
+			assert_eq!(hexval(b'0' + i), Some(i));
+		}
+		// Test lowercase
+		for i in 0..6 {
+			assert_eq!(hexval(b'a' + i), Some(10 + i));
+		}
+		// Test uppercase
+		for i in 0..6 {
+			assert_eq!(hexval(b'A' + i), Some(10 + i));
+		}
+		// Test invalid
+		assert_eq!(hexval(b'g'), None);
+		assert_eq!(hexval(b'G'), None);
+		assert_eq!(hexval(b' '), None);
 	}
 }
