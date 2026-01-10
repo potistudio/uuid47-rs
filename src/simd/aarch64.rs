@@ -69,9 +69,10 @@ unsafe fn convert_hex_to_nibbles_neon(
 	// Validate: all chars must be in one of these categories
 	let valid = vorrq_u8(vorrq_u8(is_digit, is_lower), is_upper);
 
-	// Check if all bytes are valid (all bits set to 0xFF)
-	let valid_arr: [u8; 16] = std::mem::transmute(valid);
-	if !valid_arr.iter().all(|&b| b == 0xFF) {
+	// Check if all bytes are valid using horizontal minimum reduction.
+	// If all chars are valid, every byte in `valid` is 0xFF, so min is 0xFF.
+	// This is more efficient than transmute + iteration.
+	if vminvq_u8(valid) != 0xFF {
 		return None;
 	}
 
