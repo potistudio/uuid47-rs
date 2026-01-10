@@ -1,7 +1,5 @@
 //! SIMD optimizations are in simd.rs, so these are only used in scalar path.
 
-
-
 #[inline(always)]
 #[allow(clippy::cast_possible_truncation)]
 pub(crate) fn write_48_big_endian(dst: &mut [u8; 6], v48: u64) {
@@ -13,18 +11,16 @@ pub(crate) fn write_48_big_endian(dst: &mut [u8; 6], v48: u64) {
 	dst[5] = v48 as u8;
 }
 
-/// Read 48-bit big-endian value using direct bit shifts (avoids array construction).
+/// Read 48-bit big-endian value.
+///
+/// Uses `from_be_bytes` which modern compilers optimize to a single `bswap` instruction.
 #[inline(always)]
 pub(crate) fn read_48_big_endian(src: [u8; 6]) -> u64 {
-	((src[0] as u64) << 40)
-		| ((src[1] as u64) << 32)
-		| ((src[2] as u64) << 24)
-		| ((src[3] as u64) << 16)
-		| ((src[4] as u64) << 8)
-		| (src[5] as u64)
+	// Pad to 8 bytes (2 leading zeros for big-endian)
+	let mut buf = [0u8; 8];
+	buf[2..8].copy_from_slice(&src);
+	u64::from_be_bytes(buf)
 }
-
-
 
 /// SipHash round macro for complete unrolling (removes loop overhead).
 macro_rules! sip_round {
@@ -105,6 +101,4 @@ mod tests {
 
 		assert_eq!(r, v);
 	}
-
-
 }

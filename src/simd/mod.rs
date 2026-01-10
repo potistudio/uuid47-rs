@@ -14,10 +14,13 @@ mod aarch64;
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 mod x86_64;
 
-#[cfg_attr(any(
-	all(feature = "simd", target_arch = "aarch64"),
-	all(feature = "simd", target_arch = "x86_64")
-), allow(unused))]
+#[cfg_attr(
+	any(
+		all(feature = "simd", target_arch = "aarch64"),
+		all(feature = "simd", target_arch = "x86_64")
+	),
+	allow(unused)
+)]
 mod scalar;
 
 #[cfg(all(feature = "simd", target_arch = "aarch64"))]
