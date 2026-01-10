@@ -23,13 +23,13 @@ pub(crate) fn parse_hex_runtime(input: &[u8]) -> Option<[u8; 16]> {
 	}
 }
 
-/// Format a buffer into hex with runtime CPU feature detection. \
-/// This function checks for AVX2 support at runtime using `is_x86_feature_detected!`. \
-/// If AVX2 is available, it dispatches to the AVX2-optimized formatter. \
-/// Otherwise, it falls back to the SSE2/SSSE3 implementation, which is assumed to be supported on all x86_64 targets. \
+/// Format a buffer into hex with runtime CPU feature detection.
+/// This function checks for AVX2 support at runtime using `is_x86_feature_detected!`.
+/// If AVX2 is available, it dispatches to the AVX2-optimized formatter.
+/// Otherwise, it falls back to the SSE2/SSSE3 implementation, which is assumed to be supported on all x86_64 targets.
 ///
 /// # Safety
-/// SIMD implementation requires `unsafe` because they rely on architecture-specific intrinsics. \
+/// SIMD implementation requires `unsafe` because they rely on architecture-specific intrinsics.
 /// Their usage here is considered safe because:
 /// - AVX2 is only invoked after verifying CPU support.
 /// - SSE2/SSSE3 are guaranteed features on all x86_64 CPUs.
@@ -134,7 +134,6 @@ unsafe fn parse_hex_avx2(input: &[u8]) -> Option<[u8; 16]> {
 #[target_feature(enable = "avx2")]
 #[inline]
 unsafe fn format_hex_avx2(input: &[u8; 16], output: &mut [u8; 32]) {
-
 	// Load input bytes into 128-bit register, then broadcast to 256-bit
 	let bytes_128 = _mm_loadu_si128(input.as_ptr() as *const __m128i);
 
@@ -320,7 +319,6 @@ unsafe fn combine_nibbles_sse(nibbles: __m128i) -> __m128i {
 #[target_feature(enable = "sse2", enable = "ssse3")]
 #[inline]
 pub(crate) unsafe fn format_hex_sse(input: &[u8; 16], output: &mut [u8; 32]) {
-
 	// Load input bytes
 	let bytes = _mm_loadu_si128(input.as_ptr() as *const __m128i);
 

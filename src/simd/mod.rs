@@ -97,8 +97,8 @@ pub fn parse_uuid_str(uuid_string: &str) -> Result<[u8; 16], UuidParseError> {
 	{
 		let hex_input = strip_dashes(s);
 		match parse_hex_runtime(&hex_input) {
-			Some(bytes) => return Ok(bytes),
-			None => return Err(UuidParseError::InvalidHex),
+			Some(bytes) => Ok(bytes),
+			None => Err(UuidParseError::InvalidHex),
 		}
 	}
 
