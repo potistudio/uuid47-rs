@@ -287,7 +287,7 @@ mod tests {
 
 		for i in 0..16 {
 			let mut u7 = Uuid128::empty();
-			let timestamp = ((0x100000 * i as u64) + 123) as u64;
+			let timestamp = (0x100000 * i as u64) + 123;
 			let random = ((0x0AAA ^ (i * 7) as u32) & 0x0FFF) as u16;
 			let rb = (0x0123456789ABCDEF ^ (0x1111111111111111 * i as u64)) & ((1 << 62) - 1);
 
