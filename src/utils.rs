@@ -1,7 +1,8 @@
 //! SIMD optimizations are in simd.rs, so these are only used in scalar path.
 
-/// 256-entry lookup table for hex decoding. Returns -1 for invalid chars.
-#[cfg(not(all(feature = "simd", target_arch = "aarch64")))]
+/// 256-entry lookup table for hex decoding (0x00-0xFF).\
+/// Returns -1 for invalid chars.
+#[cfg(not(feature = "simd"))]
 const HEX_DECODE_TABLE: [i8; 256] = {
 	const fn make_table() -> [i8; 256] {
 		let mut t = [-1i8; 256];
@@ -25,6 +26,7 @@ const HEX_DECODE_TABLE: [i8; 256] = {
 		}
 		t
 	}
+
 	make_table()
 };
 
@@ -51,7 +53,10 @@ pub(crate) fn read_48_big_endian(src: [u8; 6]) -> u64 {
 }
 
 /// O(1) hex character to value lookup using precomputed table.
-#[cfg(not(all(feature = "simd", target_arch = "aarch64")))]
+#[cfg(not(any(
+	all(feature = "simd", target_arch = "aarch64"),
+	all(feature = "simd", target_arch = "x86_64")
+)))]
 #[inline(always)]
 pub(crate) fn hexval(c: u8) -> Option<u8> {
 	let v = HEX_DECODE_TABLE[c as usize];
@@ -143,7 +148,10 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(not(all(feature = "simd", target_arch = "aarch64")))]
+	#[cfg(not(any(
+		all(feature = "simd", target_arch = "aarch64"),
+		all(feature = "simd", target_arch = "x86_64")
+	)))]
 	fn test_hexval_table() {
 		// Test digits
 		for i in 0..10 {

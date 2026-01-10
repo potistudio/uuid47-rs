@@ -1,6 +1,9 @@
 use crate::error::{UuidParseError, UuidValidationError};
 use crate::key::UuidV47Key;
-#[cfg(not(all(feature = "simd", target_arch = "aarch64")))]
+#[cfg(not(any(
+	all(feature = "simd", target_arch = "aarch64"),
+	all(feature = "simd", target_arch = "x86_64")
+)))]
 use crate::utils::hexval;
 use crate::utils::{read_48_big_endian, siphash24, write_48_big_endian};
 
@@ -168,8 +171,8 @@ impl Uuid128 {
 	/// ```
 	#[inline]
 	pub fn format_to_buf(&self, buf: &mut [u8; 36]) {
-		// SIMD path for aarch64
-		#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+		// SIMD path for aarch64 and x86_64
+		#[cfg(all(feature = "simd", any(target_arch = "aarch64", target_arch = "x86_64")))]
 		{
 			let mut hex_buf = [0u8; 32];
 			// SAFETY: self.bytes is exactly 16 bytes, hex_buf is 32 bytes
@@ -187,7 +190,7 @@ impl Uuid128 {
 		}
 
 		// Scalar fallback path
-		#[cfg(not(all(feature = "simd", target_arch = "aarch64")))]
+		#[cfg(not(all(feature = "simd", any(target_arch = "aarch64", target_arch = "x86_64"))))]
 		{
 			let b = &self.bytes;
 			unsafe {
@@ -332,8 +335,8 @@ impl std::str::FromStr for Uuid128 {
 			return Err(UuidParseError::InvalidHex);
 		}
 
-		// SIMD path for aarch64
-		#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+		// SIMD path for aarch64 and x86_64
+		#[cfg(all(feature = "simd", any(target_arch = "aarch64", target_arch = "x86_64")))]
 		{
 			// Strip dashes and create 32-byte hex input
 			let mut hex_input = [0u8; 32];
@@ -352,7 +355,7 @@ impl std::str::FromStr for Uuid128 {
 		}
 
 		// Scalar fallback path
-		#[cfg(not(all(feature = "simd", target_arch = "aarch64")))]
+		#[cfg(not(all(feature = "simd", any(target_arch = "aarch64", target_arch = "x86_64"))))]
 		{
 			let mut b = [0u8; 16];
 			let mut byte_idx = 0;
@@ -376,7 +379,7 @@ impl std::str::FromStr for Uuid128 {
 }
 
 // 256 entries, each entry is 2 bytes (byte value -> two ascii hex chars)
-#[cfg(not(all(feature = "simd", target_arch = "aarch64")))]
+#[cfg(not(all(feature = "simd", any(target_arch = "aarch64", target_arch = "x86_64"))))]
 const HEX_PAIR_TABLE: [[u8; 2]; 256] = {
 	const fn make_table() -> [[u8; 2]; 256] {
 		let mut t = [[0u8; 2]; 256];
@@ -418,8 +421,8 @@ impl std::fmt::Display for Uuid128 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		let mut out = [0u8; 36];
 
-		// SIMD path for aarch64
-		#[cfg(all(feature = "simd", target_arch = "aarch64"))]
+		// SIMD path for aarch64 and x86_64
+		#[cfg(all(feature = "simd", any(target_arch = "aarch64", target_arch = "x86_64")))]
 		{
 			// Use SIMD to convert bytes to hex
 			let mut hex_buf = [0u8; 32];
@@ -439,7 +442,7 @@ impl std::fmt::Display for Uuid128 {
 		}
 
 		// Scalar fallback path
-		#[cfg(not(all(feature = "simd", target_arch = "aarch64")))]
+		#[cfg(not(all(feature = "simd", any(target_arch = "aarch64", target_arch = "x86_64"))))]
 		{
 			let b = &self.bytes;
 
