@@ -53,6 +53,7 @@
 
 mod error;
 mod key;
+mod simd;
 mod utils;
 mod uuid;
 

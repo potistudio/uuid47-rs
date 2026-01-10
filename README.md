@@ -2,6 +2,7 @@
 
 ![GitHub License](https://img.shields.io/github/license/potistudio/uuid47-rs)
 ![GitHub Release](https://img.shields.io/github/v/release/potistudio/uuid47-rs)
+![Crates.io Version](https://img.shields.io/crates/v/uuid47)
 
 A simple and lightweight library for converting between UUIDv7 and UUIDv4 facade.  
 This is a Rust implementation of [UUIDv47](https://github.com/stateless-me/uuidv47)

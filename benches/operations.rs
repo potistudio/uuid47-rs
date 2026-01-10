@@ -36,11 +36,24 @@ fn benchmark_formatting(criterion: &mut Criterion) {
 	});
 }
 
+fn benchmark_format_to_buf(criterion: &mut Criterion) {
+	let uuid = Uuid128::empty();
+	let mut buf = [0u8; 36];
+
+	criterion.bench_function("format_to_buf", |bencher| {
+		bencher.iter(|| {
+			black_box(&uuid).format_to_buf(&mut buf);
+			black_box(&buf);
+		})
+	});
+}
+
 criterion_group!(
 	benches,
 	benchmark_encoding,
 	benchmark_decoding,
 	benchmark_parsing,
 	benchmark_formatting,
+	benchmark_format_to_buf,
 );
 criterion_main!(benches);

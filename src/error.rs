@@ -25,8 +25,8 @@ impl std::fmt::Display for UuidParseError {
 
 impl std::error::Error for UuidParseError {}
 
-/// Error type representing a failure to validate bytes as a UUID."
-#[derive(Debug)]
+/// Error type representing a failure to validate bytes as a UUID.
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum UuidValidationError {
 	/// The input bytes do not represent a valid UUID version<br>
 	/// Valid versions are 4 (random) and 7 (time-ordered).
