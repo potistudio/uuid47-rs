@@ -42,9 +42,20 @@ impl std::fmt::Debug for UuidV47Key {
 }
 
 impl PartialEq for UuidV47Key {
+	/// Constant-time comparison to prevent timing side-channel attacks.
+	///
+	/// Uses XOR to accumulate differences - if any bit differs, the result
+	/// is non-zero. This takes the same amount of time regardless of where
+	/// the first difference occurs.
 	fn eq(&self, other: &Self) -> bool {
-		self.k0 == other.k0 && self.k1 == other.k1
+		let diff = (self.k0 ^ other.k0) | (self.k1 ^ other.k1);
+		// Use volatile read to prevent compiler optimizations that could
+		// introduce timing variations (e.g., branch on first non-zero bit).
+		// SAFETY: Reading from a valid stack variable.
+		let diff = unsafe { std::ptr::read_volatile(&diff) };
+		diff == 0
 	}
 }
 
 impl Eq for UuidV47Key {}
+
