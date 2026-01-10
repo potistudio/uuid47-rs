@@ -1,11 +1,13 @@
+use zeroize::Zeroize;
+
 /// Key structure for `UUIDv47` encoding/decoding.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Clone, Copy, Zeroize)]
 pub struct UuidV47Key {
 	/// First 64 bits of the key.
-	pub k0: u64,
+	k0: u64,
 
 	/// Second 64 bits of the key.
-	pub k1: u64,
+	k1: u64,
 }
 
 impl UuidV47Key {
@@ -14,4 +16,30 @@ impl UuidV47Key {
 	pub fn new(k0: u64, k1: u64) -> Self {
 		Self { k0, k1 }
 	}
+
+	/// Returns the first 64 bits of the key.
+	#[must_use]
+	pub(crate) fn k0(&self) -> u64 {
+		self.k0
+	}
+
+	/// Returns the second 64 bits of the key.
+	#[must_use]
+	pub(crate) fn k1(&self) -> u64 {
+		self.k1
+	}
 }
+
+impl std::fmt::Debug for UuidV47Key {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("UuidV47Key").finish_non_exhaustive()
+	}
+}
+
+impl PartialEq for UuidV47Key {
+	fn eq(&self, other: &Self) -> bool {
+		self.k0 == other.k0 && self.k1 == other.k1
+	}
+}
+
+impl Eq for UuidV47Key {}

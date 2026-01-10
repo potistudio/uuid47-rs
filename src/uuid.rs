@@ -1,10 +1,5 @@
 use crate::error::{UuidParseError, UuidValidationError};
 use crate::key::UuidV47Key;
-#[cfg(not(any(
-	all(feature = "simd", target_arch = "aarch64"),
-	all(feature = "simd", target_arch = "x86_64")
-)))]
-use crate::utils::hexval;
 use crate::utils::{read_48_big_endian, siphash24, write_48_big_endian};
 
 /// A 128-bit UUID (`UUIDv4` or `UUIDv7`).
@@ -74,7 +69,7 @@ impl Uuid128 {
 	/// Returns 4 for `UUIDv4`, 7 for `UUIDv7`, or other values for invalid versions.
 	#[must_use]
 	pub fn uuid_version(&self) -> u8 {
-		(&self.bytes[6] >> 4) & 0x0F
+		(self.bytes[6] >> 4) & 0x0F
 	}
 
 	/// Set the UUID version (4 or 7).
@@ -100,18 +95,17 @@ impl Uuid128 {
 	#[must_use]
 	#[inline]
 	pub fn encode_as_v4facade(&self, key: &UuidV47Key) -> Uuid128 {
-		//* 1. SipHash24(key, v7.random74bits) -> take low 48 bits */
+		// 1. SipHash24(key, v7.random74bits) -> take low 48 bits */
 		let mut sipmsg = [0u8; 10];
 
 		build_sip_input_from_v7(self, &mut sipmsg);
-		let mask48 = siphash24(&sipmsg, key.k0, key.k1) & 0x0000_FFFF_FFFF_FFFFu64;
+		let mask48 = siphash24(&sipmsg, key.k0(), key.k1()) & 0x0000_FFFF_FFFF_FFFFu64;
 
-		//* 2. Encode timestamp */
+		// 2. Encode timestamp
 		let encoded_timestamp = read_48_big_endian((self.bytes[0..6]).try_into().unwrap()) ^ mask48;
 
-		//* 3. Build v4 facade */
-		// Use dereference copy instead of "from_bytes" to ensure performance optimization
-		// let mut out = Uuid128::from_bytes(v7.b); <- STUPID
+		// 3. Build v4 facade
+		// Use dereference copy - validation not needed since we're transforming a known-valid UUID
 		let mut out = *self;
 
 		// Force slice to fixed-size (should not panic)
@@ -138,15 +132,14 @@ impl Uuid128 {
 		// 1. rebuild same Sip input from facade (identical bytes)
 		let mut sipmsg = [0u8; 10];
 		build_sip_input_from_v7(self, &mut sipmsg);
-		let mask48 = siphash24(&sipmsg, key.k0, key.k1) & 0x0000_FFFF_FFFF_FFFFu64;
+		let mask48 = siphash24(&sipmsg, key.k0(), key.k1()) & 0x0000_FFFF_FFFF_FFFFu64;
 
 		// 2. ts = encTS ^ mask
 		// Force slice to fixed-size (should not panic)
 		let ts48 = read_48_big_endian((self.bytes[0..6]).try_into().unwrap()) ^ mask48;
 
 		// 3. restore v7: write ts, set ver=7, set variant
-		// Use dereference copy instead of "from_bytes" to ensure performance optimization
-		// let mut result = Uuid128::from_bytes(v7.b); <- STUPID
+		// Use dereference copy - validation not needed since we're transforming a known-valid UUID
 		let mut out = *self;
 
 		// Force slice to fixed-size (should not panic)
@@ -171,112 +164,7 @@ impl Uuid128 {
 	/// ```
 	#[inline]
 	pub fn format_to_buf(&self, buf: &mut [u8; 36]) {
-		// SIMD path for aarch64 and x86_64
-		#[cfg(all(feature = "simd", any(target_arch = "aarch64", target_arch = "x86_64")))]
-		{
-			let mut hex_buf = [0u8; 32];
-			// SAFETY: self.bytes is exactly 16 bytes, hex_buf is 32 bytes
-			unsafe { crate::simd::format_hex_simd(&self.bytes, &mut hex_buf) };
-
-			buf[0..8].copy_from_slice(&hex_buf[0..8]);
-			buf[8] = b'-';
-			buf[9..13].copy_from_slice(&hex_buf[8..12]);
-			buf[13] = b'-';
-			buf[14..18].copy_from_slice(&hex_buf[12..16]);
-			buf[18] = b'-';
-			buf[19..23].copy_from_slice(&hex_buf[16..20]);
-			buf[23] = b'-';
-			buf[24..36].copy_from_slice(&hex_buf[20..32]);
-		}
-
-		// Scalar fallback path
-		#[cfg(not(all(feature = "simd", any(target_arch = "aarch64", target_arch = "x86_64"))))]
-		{
-			let b = &self.bytes;
-			unsafe {
-				let dst = buf.as_mut_ptr();
-				std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[0] as usize].as_ptr(), dst, 2);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[1] as usize].as_ptr(),
-					dst.add(2),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[2] as usize].as_ptr(),
-					dst.add(4),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[3] as usize].as_ptr(),
-					dst.add(6),
-					2,
-				);
-				*dst.add(8) = b'-';
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[4] as usize].as_ptr(),
-					dst.add(9),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[5] as usize].as_ptr(),
-					dst.add(11),
-					2,
-				);
-				*dst.add(13) = b'-';
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[6] as usize].as_ptr(),
-					dst.add(14),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[7] as usize].as_ptr(),
-					dst.add(16),
-					2,
-				);
-				*dst.add(18) = b'-';
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[8] as usize].as_ptr(),
-					dst.add(19),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[9] as usize].as_ptr(),
-					dst.add(21),
-					2,
-				);
-				*dst.add(23) = b'-';
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[10] as usize].as_ptr(),
-					dst.add(24),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[11] as usize].as_ptr(),
-					dst.add(26),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[12] as usize].as_ptr(),
-					dst.add(28),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[13] as usize].as_ptr(),
-					dst.add(30),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[14] as usize].as_ptr(),
-					dst.add(32),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[15] as usize].as_ptr(),
-					dst.add(34),
-					2,
-				);
-			}
-		}
+		crate::simd::format_uuid_buf(&self.bytes, buf);
 	}
 
 	/// Format the UUID and return it as a UTF-8 string slice.
@@ -323,88 +211,10 @@ impl std::str::FromStr for Uuid128 {
 	/// E.g. "550e8400-e29b-41d4-a716-446655440000"
 	#[inline]
 	fn from_str(uuid_string: &str) -> Result<Self, Self::Err> {
-		// expects xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-		if uuid_string.len() != 36 {
-			return Err(UuidParseError::InvalidLength);
-		}
-
-		let s = uuid_string.as_bytes();
-
-		// Validate dashes at fixed positions
-		if s[8] != b'-' || s[13] != b'-' || s[18] != b'-' || s[23] != b'-' {
-			return Err(UuidParseError::InvalidHex);
-		}
-
-		// SIMD path for aarch64 and x86_64
-		#[cfg(all(feature = "simd", any(target_arch = "aarch64", target_arch = "x86_64")))]
-		{
-			// Strip dashes and create 32-byte hex input
-			let mut hex_input = [0u8; 32];
-			hex_input[0..8].copy_from_slice(&s[0..8]);
-			hex_input[8..12].copy_from_slice(&s[9..13]);
-			hex_input[12..16].copy_from_slice(&s[14..18]);
-			hex_input[16..20].copy_from_slice(&s[19..23]);
-			hex_input[20..32].copy_from_slice(&s[24..36]);
-
-			// Use SIMD parsing
-			// SAFETY: hex_input is exactly 32 bytes, validation is done inside parse_hex_simd
-			let b = unsafe { crate::simd::parse_hex_simd(&hex_input) }
-				.ok_or(UuidParseError::InvalidHex)?;
-
-			Self::from_bytes(b).map_err(|_| UuidParseError::InvalidHex)
-		}
-
-		// Scalar fallback path
-		#[cfg(not(all(feature = "simd", any(target_arch = "aarch64", target_arch = "x86_64"))))]
-		{
-			let mut b = [0u8; 16];
-			let mut byte_idx = 0;
-
-			// Unrolled parsing for better performance
-			// Parse segments: 8-4-4-4-12
-			for &(start, end) in &[(0, 8), (9, 13), (14, 18), (19, 23), (24, 36)] {
-				let mut i = start;
-				while i < end {
-					let h = hexval(s[i]).ok_or(UuidParseError::InvalidHex)?;
-					let l = hexval(s[i + 1]).ok_or(UuidParseError::InvalidHex)?;
-					b[byte_idx] = (h << 4) | l;
-					byte_idx += 1;
-					i += 2;
-				}
-			}
-
-			Self::from_bytes(b).map_err(|_| UuidParseError::InvalidHex)
-		}
+		let bytes = crate::simd::parse_uuid_str(uuid_string)?;
+		Self::from_bytes(bytes).map_err(|_| UuidParseError::InvalidHex)
 	}
 }
-
-// 256 entries, each entry is 2 bytes (byte value -> two ascii hex chars)
-#[cfg(not(all(feature = "simd", any(target_arch = "aarch64", target_arch = "x86_64"))))]
-const HEX_PAIR_TABLE: [[u8; 2]; 256] = {
-	const fn make_table() -> [[u8; 2]; 256] {
-		let mut t = [[0u8; 2]; 256];
-		let mut i = 0usize;
-		while i < 256 {
-			let hi = (i >> 4) & 0xF;
-			let lo = i & 0xF;
-			// ascii for hex nibble
-			let hi_ch = if hi < 10 {
-				b'0' + hi as u8
-			} else {
-				b'a' + (hi as u8 - 10)
-			};
-			let lo_ch = if lo < 10 {
-				b'0' + lo as u8
-			} else {
-				b'a' + (lo as u8 - 10)
-			};
-			t[i] = [hi_ch, lo_ch];
-			i += 1;
-		}
-		t
-	}
-	make_table()
-};
 
 impl std::fmt::Display for Uuid128 {
 	/// Format the UUID into standard 8-4-4-4-12 hex string with dashes.
@@ -419,131 +229,11 @@ impl std::fmt::Display for Uuid128 {
 	/// ```
 	#[inline]
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		let mut out = [0u8; 36];
-
-		// SIMD path for aarch64 and x86_64
-		#[cfg(all(feature = "simd", any(target_arch = "aarch64", target_arch = "x86_64")))]
-		{
-			// Use SIMD to convert bytes to hex
-			let mut hex_buf = [0u8; 32];
-			// SAFETY: self.bytes is exactly 16 bytes, hex_buf is 32 bytes
-			unsafe { crate::simd::format_hex_simd(&self.bytes, &mut hex_buf) };
-
-			// Insert hex chars with dashes
-			out[0..8].copy_from_slice(&hex_buf[0..8]);
-			out[8] = b'-';
-			out[9..13].copy_from_slice(&hex_buf[8..12]);
-			out[13] = b'-';
-			out[14..18].copy_from_slice(&hex_buf[12..16]);
-			out[18] = b'-';
-			out[19..23].copy_from_slice(&hex_buf[16..20]);
-			out[23] = b'-';
-			out[24..36].copy_from_slice(&hex_buf[20..32]);
-		}
-
-		// Scalar fallback path
-		#[cfg(not(all(feature = "simd", any(target_arch = "aarch64", target_arch = "x86_64"))))]
-		{
-			let b = &self.bytes;
-
-			// Use unsafe ptr::copy_nonoverlapping for optimal codegen
-			unsafe {
-				let dst = out.as_mut_ptr();
-
-				// Segment 1: bytes 0-3 (8 hex chars) -> out[0..8]
-				std::ptr::copy_nonoverlapping(HEX_PAIR_TABLE[b[0] as usize].as_ptr(), dst, 2);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[1] as usize].as_ptr(),
-					dst.add(2),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[2] as usize].as_ptr(),
-					dst.add(4),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[3] as usize].as_ptr(),
-					dst.add(6),
-					2,
-				);
-				*dst.add(8) = b'-';
-
-				// Segment 2: bytes 4-5 (4 hex chars) -> out[9..13]
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[4] as usize].as_ptr(),
-					dst.add(9),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[5] as usize].as_ptr(),
-					dst.add(11),
-					2,
-				);
-				*dst.add(13) = b'-';
-
-				// Segment 3: bytes 6-7 (4 hex chars) -> out[14..18]
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[6] as usize].as_ptr(),
-					dst.add(14),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[7] as usize].as_ptr(),
-					dst.add(16),
-					2,
-				);
-				*dst.add(18) = b'-';
-
-				// Segment 4: bytes 8-9 (4 hex chars) -> out[19..23]
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[8] as usize].as_ptr(),
-					dst.add(19),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[9] as usize].as_ptr(),
-					dst.add(21),
-					2,
-				);
-				*dst.add(23) = b'-';
-
-				// Segment 5: bytes 10-15 (12 hex chars) -> out[24..36]
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[10] as usize].as_ptr(),
-					dst.add(24),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[11] as usize].as_ptr(),
-					dst.add(26),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[12] as usize].as_ptr(),
-					dst.add(28),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[13] as usize].as_ptr(),
-					dst.add(30),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[14] as usize].as_ptr(),
-					dst.add(32),
-					2,
-				);
-				std::ptr::copy_nonoverlapping(
-					HEX_PAIR_TABLE[b[15] as usize].as_ptr(),
-					dst.add(34),
-					2,
-				);
-			}
-		}
-
-		// safe: we only put ASCII hex and '-'
-		let s = unsafe { std::str::from_utf8_unchecked(&out) };
+		let mut buf = [0u8; 36];
+		// Use the optimized format_to_buf (handles SIMD/Scalar)
+		self.format_to_buf(&mut buf);
+		// SAFETY: format_to_buf produces valid ASCII
+		let s = unsafe { std::str::from_utf8_unchecked(&buf) };
 		f.write_str(s)
 	}
 }
@@ -593,10 +283,7 @@ mod tests {
 
 	#[test]
 	fn test_encode_decode_roundtrip() {
-		let key = UuidV47Key {
-			k0: 0x0123456789abcdef,
-			k1: 0xfedcba9876543210,
-		};
+		let key = UuidV47Key::new(0x0123456789abcdef, 0xfedcba9876543210);
 
 		for i in 0..16 {
 			let mut u7 = Uuid128::empty();
@@ -614,10 +301,7 @@ mod tests {
 			let back = facade.decode_from_v4facade(&key);
 			assert_eq!(u7, back);
 
-			let wrong = UuidV47Key {
-				k0: key.k0 ^ 0xdeadbeef,
-				k1: key.k1 ^ 0x1337,
-			};
+			let wrong = UuidV47Key::new(key.k0() ^ 0xdeadbeef, key.k1() ^ 0x1337);
 			let bad = facade.decode_from_v4facade(&wrong);
 			assert_ne!(u7, bad);
 		}

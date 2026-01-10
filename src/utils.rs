@@ -1,34 +1,6 @@
 //! SIMD optimizations are in simd.rs, so these are only used in scalar path.
 
-/// 256-entry lookup table for hex decoding (0x00-0xFF).\
-/// Returns -1 for invalid chars.
-#[cfg(not(feature = "simd"))]
-const HEX_DECODE_TABLE: [i8; 256] = {
-	const fn make_table() -> [i8; 256] {
-		let mut t = [-1i8; 256];
-		let mut i = 0u8;
-		// '0'-'9' -> 0-9
-		while i < 10 {
-			t[(b'0' + i) as usize] = i as i8;
-			i += 1;
-		}
-		// 'a'-'f' -> 10-15
-		i = 0;
-		while i < 6 {
-			t[(b'a' + i) as usize] = (10 + i) as i8;
-			i += 1;
-		}
-		// 'A'-'F' -> 10-15
-		i = 0;
-		while i < 6 {
-			t[(b'A' + i) as usize] = (10 + i) as i8;
-			i += 1;
-		}
-		t
-	}
 
-	make_table()
-};
 
 #[inline(always)]
 #[allow(clippy::cast_possible_truncation)]
@@ -52,20 +24,7 @@ pub(crate) fn read_48_big_endian(src: [u8; 6]) -> u64 {
 		| (src[5] as u64)
 }
 
-/// O(1) hex character to value lookup using precomputed table.
-#[cfg(not(any(
-	all(feature = "simd", target_arch = "aarch64"),
-	all(feature = "simd", target_arch = "x86_64")
-)))]
-#[inline(always)]
-pub(crate) fn hexval(c: u8) -> Option<u8> {
-	let v = HEX_DECODE_TABLE[c as usize];
-	if v < 0 {
-		None
-	} else {
-		Some(v as u8)
-	}
-}
+
 
 /// SipHash round macro for complete unrolling (removes loop overhead).
 macro_rules! sip_round {
@@ -147,27 +106,5 @@ mod tests {
 		assert_eq!(r, v);
 	}
 
-	#[test]
-	#[cfg(not(any(
-		all(feature = "simd", target_arch = "aarch64"),
-		all(feature = "simd", target_arch = "x86_64")
-	)))]
-	fn test_hexval_table() {
-		// Test digits
-		for i in 0..10 {
-			assert_eq!(hexval(b'0' + i), Some(i));
-		}
-		// Test lowercase
-		for i in 0..6 {
-			assert_eq!(hexval(b'a' + i), Some(10 + i));
-		}
-		// Test uppercase
-		for i in 0..6 {
-			assert_eq!(hexval(b'A' + i), Some(10 + i));
-		}
-		// Test invalid
-		assert_eq!(hexval(b'g'), None);
-		assert_eq!(hexval(b'G'), None);
-		assert_eq!(hexval(b' '), None);
-	}
+
 }
