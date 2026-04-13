@@ -109,7 +109,7 @@ impl Uuid128 {
 		// 1. SipHash24(key, v7.random74bits) -> take low 48 bits */
 		let mut sipmsg = [0u8; 10];
 
-		build_sip_input_from_v7(self, &mut sipmsg);
+		build_sip_input(self, &mut sipmsg);
 		let mask48 = siphash24(&sipmsg, key.k0(), key.k1()) & 0x0000_FFFF_FFFF_FFFFu64;
 
 		// 2. Encode timestamp
@@ -142,7 +142,7 @@ impl Uuid128 {
 	pub fn decode_from_v4facade(&self, key: &UuidV47Key) -> Uuid128 {
 		// 1. rebuild same Sip input from facade (identical bytes)
 		let mut sipmsg = [0u8; 10];
-		build_sip_input_from_v7(self, &mut sipmsg);
+		build_sip_input(self, &mut sipmsg);
 		let mask48 = siphash24(&sipmsg, key.k0(), key.k1()) & 0x0000_FFFF_FFFF_FFFFu64;
 
 		// 2. ts = encTS ^ mask
@@ -273,7 +273,7 @@ impl std::fmt::Display for Uuid128 {
 }
 
 #[inline]
-fn build_sip_input_from_v7(u: &Uuid128, msg: &mut [u8; 10]) {
+fn build_sip_input(u: &Uuid128, msg: &mut [u8; 10]) {
 	// [low-nibble of b6][b7][b8&0x3F][b9..b15]
 	msg[0] = u.bytes[6] & 0x0F;
 	msg[1] = u.bytes[7];
