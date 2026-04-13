@@ -3,7 +3,7 @@ use crate::key::UuidV47Key;
 use crate::utils::{read_48_big_endian, siphash24, write_48_big_endian};
 
 /// A 128-bit UUID (`UUIDv4` or `UUIDv7`).
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct Uuid128 {
 	bytes: [u8; 16],
