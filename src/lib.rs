@@ -6,7 +6,7 @@
 //! - **Safe**: Implemented all APIs in safe Rust.
 //! - **Easy**: Provides simple object-oriented API.
 //! - **Fast**: Designed to eliminate overhead and run at high performance.
-//! - **Lightweight** Zero dependencies.
+//! - **Lightweight** Minimal dependencies.
 //!
 //! # Example
 //!
@@ -34,7 +34,7 @@
 //! }
 //! ```
 //!
-//! ```
+//! ```text
 //! // Output:
 //! // v7(DB)  : 00000000-0000-7000-8000-000000000000
 //! // v4(API) : 22d97126-9609-4000-8000-000000000000

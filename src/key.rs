@@ -36,7 +36,7 @@ impl UuidV47Key {
 
 	/// Generate a cryptographically random key.
 	///
-	/// This method requires the `random-key` feature.
+	/// This method requires the `keygen` feature.
 	///
 	/// # Examples
 	///

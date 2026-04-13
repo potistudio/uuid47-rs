@@ -99,10 +99,10 @@ impl Uuid128 {
 
 	/// Encode this `UUIDv7` into `UUIDv4` facade using `UuidV47Key`.
 	///
-	/// # Panics
+	/// # Note
 	///
-	/// This function does not validate the input `UUIDv7`.
-	/// So, invalid input may occur panic.
+	/// This function does not validate the input. The caller must ensure
+	/// the input is a valid `UUIDv7` (version 7, RFC 4122 variant).
 	#[must_use]
 	#[inline]
 	pub fn encode_as_v4facade(&self, key: &UuidV47Key) -> Uuid128 {
@@ -133,10 +133,10 @@ impl Uuid128 {
 
 	/// Decode this `UUIDv4` facade back into `UUIDv7` using `UuidV47Key`.
 	///
-	/// # Panics
+	/// # Note
 	///
-	/// This function does not validate the input `UUIDv4` facade.
-	/// So, invalid input may occur panic.
+	/// This function does not validate the input. The caller must ensure
+	/// the input is a valid `UUIDv4` facade (version 4, RFC 4122 variant).
 	#[must_use]
 	#[inline]
 	pub fn decode_from_v4facade(&self, key: &UuidV47Key) -> Uuid128 {

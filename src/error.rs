@@ -39,4 +39,3 @@ impl std::fmt::Display for UuidParseError {
 
 impl std::error::Error for UuidParseError {}
 
-
